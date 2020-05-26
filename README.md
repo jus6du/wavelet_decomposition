@@ -1,7 +1,7 @@
 # Wavelet decomposition for electricity generation and consumption time series
 ### This code should be run with Python 3
 
-# color:red Repository is under construction
+> # Repository is under construction
 
 For any questions you can reach me by email: arthur.clerjon@cea.fr
 
