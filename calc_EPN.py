@@ -1,10 +1,11 @@
 import numpy as np
 
-def calc_epn(beta, satisfactions, time_scales, dpy, load_factor):
+def calc_epn(beta, satisfactions, time_scales, dpy, load_factor, shape='square'):
     '''
     Calculate Energy, Power, nb of cycles from input betas
     Returns E, P, N, Usage factor for diferent satisfaction rates
     - load_factor : average power, the mean energy consumption
+    :param shape:
     '''
     Nyears = beta[-1].size
     #Indices : length, satisfaction
@@ -32,7 +33,10 @@ def calc_epn(beta, satisfactions, time_scales, dpy, load_factor):
             n_satis[s] = sum(np.minimum(dech, dech_satis[s])) / dech_satis[s] / Nyears
 
         pmax[i, :] = dech_satis * load_factor
-        emax[i, :] = pmax[i, :] * veclength / 2.
+        if shape is 'sine':
+            emax[i, :] = pmax[i, :] * veclength / 2. *2./np.pi
+        else:
+            emax[i, :] = pmax[i, :] * veclength / 2.
         n[i, :] = n_satis
         uf[i, :] = 100. * n[i, :] * veclength / (dpy*24)
         serv[i, :] = emax[i, :] * n[i, :]
