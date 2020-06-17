@@ -470,7 +470,7 @@ def reconstruct(time_scales, reconstructed_time_scales,
     #
     time = np.linspace(0, dpy, dpy * dpd)
     fig = plt.figure()
-    fig.set_size_inches(10, 8)
+    fig.set_size_inches(8, 6)
     plt.plot(time, np.dot(matrix, concat_betas[::-1]))
     plt.xlim(xmin, xmax)
     plt.xlabel('Days')

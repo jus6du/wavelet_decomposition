@@ -142,8 +142,8 @@ def plot_EPN(emax, pmax, n, uf, serv, time_scales, satisfactions, scenario_name)
 
     ##---- create figure ----
 
-    fwidth = 10.  # total width of the figure in inches
-    fheight = 6.  # total height of the figure in inches
+    fwidth = 8.  # total width of the figure in inches
+    fheight = 5.  # total height of the figure in inches
 
     fig = plt.figure(figsize=(fwidth, fheight))
 
