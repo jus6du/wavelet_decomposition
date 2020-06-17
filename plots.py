@@ -79,7 +79,7 @@ def fft(ndpd, dpy,
     # sample spacing
     T = 1.0 / N
     x = np.linspace(0, int(N*T), N)
-    y = input_data# - np.mean(input_data)
+    y = input_data - np.mean(input_data)
     yf = np.absolute(scipy.fftpack.fft(y))
     xf = 8760./np.linspace(0, 1.0/(2.0*T), int(N/2))
 
