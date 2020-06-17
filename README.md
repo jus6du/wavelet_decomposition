@@ -14,3 +14,7 @@ This work is a part of my PhD projet. For additionnal informations you can check
 __Input time series:__
 
 Input data are provided by RTE, the French Transmission System Operator (TSO). They are available there: https://www.rte-france.com/fr/eco2mix/eco2mix
+
+__Results:__
+- Results of the wavelet decomposition are saved as Excel files in the folder "betas"
+- You can also run the tutorial notebook for different vizualization of your results
