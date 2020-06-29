@@ -345,28 +345,32 @@ What it does:
     if do_trans is None:
             [transday, transweek, transyear] = [0,0,0]
     else:
-            [transday, transweek, transyear] = do_trans[years.index(year)]
+            [transday, transweek, transyear] =  [x*2 for x in  do_trans[years.index(year)]] 
 
     #
     # Initialization
     Nb_vec = vecNb_yr + vecNb_week + vecNb_day
-    max_nb_betas = dpy*ndpd//2
+    max_nb_betas = dpy*ndpd
 
-    assert(max_nb_betas == len(saved_sheets[signal_type][year][0])), 'Inconsistant number of coefficient betas'
+    assert(max_nb_betas == len(saved_sheets[signal_type][year][0])*2), 'Inconsistant number of coefficient betas'
     assert(Nb_vec+1 == len(saved_sheets[signal_type][year]) ), 'There is not the right number of time scales' # +1 stands for the offset value
     # Create an empty DataFrame (nan)
     df = pd.DataFrame(np.nan, index=range(Nb_vec), columns=range(max_nb_betas)).transpose()
     # Re-shape
     counter = 0
-    # ---- Day vectors
-    for k in range(vecNb_day):
-        old_vec =saved_sheets[signal_type][year][k]
-        oldsize = len(old_vec)
+    # # # ---- Day vectors
+    for j in range(vecNb_day):
+        k = counter
+        old_vec = saved_sheets[signal_type][year][k]
+        extended_old_vec=[]
+        for x in old_vec:
+            extended_old_vec.extend((x,-x))
+        oldsize = len(extended_old_vec)
         new_vec = []
-        step = int(2**k)
-        for i in range(oldsize):
-            new_vec = new_vec + [old_vec[i]]*step
-        #
+        step = int(2**(j))
+        for i, val in enumerate(extended_old_vec):
+            new_vec = new_vec + [val]*step
+
         new_vec = translate(np.array(new_vec), transday)
 
         df[k] = pd.DataFrame({'betas':new_vec})
@@ -378,34 +382,40 @@ What it does:
     for l in range(vecNb_week):
         k = counter
         old_vec = saved_sheets[signal_type][year][k]
-        oldsize = len(old_vec)
+        extended_old_vec=[]
+        for x in old_vec:
+            extended_old_vec.extend((x,-x))
+        oldsize = len(extended_old_vec)
         new_vec = []
-        step = int(newsize/oldsize/2)
-        for i in range(oldsize):
-            new_vec = new_vec + [old_vec[i]]*step
+        step = int(newsize/oldsize)
+        for i, val in enumerate(extended_old_vec):
+            new_vec = new_vec + [val]*step
+
         #
         new_vec = translate(np.array(new_vec), transweek)
 
         df[k] = pd.DataFrame({'betas':new_vec})
         counter = counter + 1
 
-    # ------ Year vectors
+    # # ------ Year vectors
     for m in range(vecNb_yr):
         k = counter
-        old_vec =saved_sheets[signal_type][year][k]
-        oldsize = len(old_vec)
+        old_vec = saved_sheets[signal_type][year][k]
+        extended_old_vec=[]
+        for x in old_vec:
+            extended_old_vec.extend((x,-x))
+        oldsize = len(extended_old_vec)
         new_vec = []
-        step = int(dpy*2**m)
-        for i in range(oldsize):
-            new_vec = new_vec + [old_vec[i]]*step
+        step = int(dpy*2**(m))
+        for i, val in enumerate(extended_old_vec):
+            new_vec = new_vec + [val]*step
         #
         new_vec = translate(np.array(new_vec), transyear)
 
-        df[k] = pd.DataFrame({'betas':new_vec})
+        df[k] = pd.DataFrame({'betas':new_vec })
         counter = counter + 1
 
     return df
-
 
 def stack_betas(saved_sheets, time_series, chosen_years):
     '''
@@ -470,7 +480,7 @@ def reconstruct(time_scales, reconstructed_time_scales,
     #
     time = np.linspace(0, dpy, dpy * dpd)
     fig = plt.figure()
-    fig.set_size_inches(8, 6)
+    fig.set_size_inches(10, 8)
     plt.plot(time, np.dot(matrix, concat_betas[::-1]))
     plt.xlim(xmin, xmax)
     plt.xlabel('Days')

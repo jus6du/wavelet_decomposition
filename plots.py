@@ -33,14 +33,14 @@ def plot_betas_heatmap(df, signal_type, year , ndpd,
     y = [0.5, 1.5 ,2.5 ,3.5 ,4.5 ,5.5 ,6.5 ,7.5 ,8.5 ,9.5 ,10.5,11.5 ,12.5 ,13.5 ,14.5 ]
     #
     time = ["January, 1"] + [str(x) for x in range(30,360,30)]+["December, 31"]
-    x = [x*ndpd/2 for x in range(0,360,30)]+[365.*ndpd/2.]
+    x = [x*ndpd for x in range(0,360,30)]+[365.*ndpd]
     #
     # Figure settings
     fig, ax = plt.subplots()
     fig.set_size_inches(20, 10)
-    Z = (np.absolute(df)).transpose()
-    # Z = df.transpose()
-    ax=sns.heatmap( Z ,
+    # Z = (np.absolute(df)).transpose()
+    Z = df.transpose()
+    ax = sns.heatmap( Z ,
     #                norm=LogNorm(vmin=Z.min().max(), vmax=Z.max().min()),
     #                cmap = "YlOrRd",
                    cmap='coolwarm',
@@ -142,8 +142,8 @@ def plot_EPN(emax, pmax, n, uf, serv, time_scales, satisfactions, scenario_name)
 
     ##---- create figure ----
 
-    fwidth = 8.  # total width of the figure in inches
-    fheight = 5.  # total height of the figure in inches
+    fwidth = 10.  # total width of the figure in inches
+    fheight = 8.  # total height of the figure in inches
 
     fig = plt.figure(figsize=(fwidth, fheight))
 
