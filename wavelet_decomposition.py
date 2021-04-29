@@ -322,11 +322,8 @@ def compute_betas(time_series,  stacked_data,
 
     return stacked_betas, saved_sheets
 
-
-
-
 def preplotprocessing(vecNb_yr, vecNb_week , vecNb_day, ndpd, dpy,
-                    signal_type, year, years, saved_sheets, do_trans = None ):
+                    signal_type, year, years, time_scales, saved_sheets, matrix):
     '''
     Preprocess waveley sheets for plot_betas_heatmap() function
 This function takes as imputs:
@@ -334,88 +331,32 @@ This function takes as imputs:
     - signal_type : 'Consommation' or 'Eolien'...
     - list of years included. e.g. ['2012', '2013',...]
     - year : e.g. '2012'
-    - if translate is None, there is no translation. else, translating results
 
 What it does:
-    - Reshape betas as a dataframe with row of equal size. Eeady to pe ploted
+    - Reshape betas as a DataFrame with row of equal size. Ready to be ploted
     '''
     #
     # translation
     assert(years[years.index(year)] == year), 'Index error between the translation year and the data'
-    if do_trans is None:
-            [transday, transweek, transyear] = [0,0,0]
-    else:
-            [transday, transweek, transyear] =  [x*2 for x in  do_trans[years.index(year)]] 
-
     #
     # Initialization
     Nb_vec = vecNb_yr + vecNb_week + vecNb_day
     max_nb_betas = dpy*ndpd
 
-    assert(max_nb_betas == len(saved_sheets[signal_type][year][0])*2), 'Inconsistant number of coefficient betas'
     assert(Nb_vec+1 == len(saved_sheets[signal_type][year]) ), 'There is not the right number of time scales' # +1 stands for the offset value
     # Create an empty DataFrame (nan)
     df = pd.DataFrame(np.nan, index=range(Nb_vec), columns=range(max_nb_betas)).transpose()
-    # Re-shape
-    counter = 0
-    # # # ---- Day vectors
-    for j in range(vecNb_day):
-        k = counter
-        old_vec = saved_sheets[signal_type][year][k]
-        extended_old_vec=[]
-        for x in old_vec:
-            extended_old_vec.extend((x,-x))
-        oldsize = len(extended_old_vec)
-        new_vec = []
-        step = int(2**(j))
-        for i, val in enumerate(extended_old_vec):
-            new_vec = new_vec + [val]*step
 
-        new_vec = translate(np.array(new_vec), transday)
-
+    for k,ts in enumerate(time_scales):
+        new_vec = reconstruct(time_scales, [ts],
+                    matrix, saved_sheets[signal_type][year], "Consommation électrique Française normalisée, 2013",
+                    xmin=0, xmax=365,
+                    dpy=dpy, dpd=ndpd,
+                    add_offset=False)
+        plt.close()
         df[k] = pd.DataFrame({'betas':new_vec})
-        counter = counter + 1
-
-    # ------ Week vectors
-    # The is 52*7=364 "days" => week wavelets are not covering the full year
-    newsize = 364.*ndpd
-    for l in range(vecNb_week):
-        k = counter
-        old_vec = saved_sheets[signal_type][year][k]
-        extended_old_vec=[]
-        for x in old_vec:
-            extended_old_vec.extend((x,-x))
-        oldsize = len(extended_old_vec)
-        new_vec = []
-        step = int(newsize/oldsize)
-        for i, val in enumerate(extended_old_vec):
-            new_vec = new_vec + [val]*step
-
-        #
-        new_vec = translate(np.array(new_vec), transweek)
-
-        df[k] = pd.DataFrame({'betas':new_vec})
-        counter = counter + 1
-
-    # # ------ Year vectors
-    for m in range(vecNb_yr):
-        k = counter
-        old_vec = saved_sheets[signal_type][year][k]
-        extended_old_vec=[]
-        for x in old_vec:
-            extended_old_vec.extend((x,-x))
-        oldsize = len(extended_old_vec)
-        new_vec = []
-        step = int(dpy*2**(m))
-        for i, val in enumerate(extended_old_vec):
-            new_vec = new_vec + [val]*step
-        #
-        new_vec = translate(np.array(new_vec), transyear)
-
-        df[k] = pd.DataFrame({'betas':new_vec })
-        counter = counter + 1
-
     return df
+
 
 def stack_betas(saved_sheets, time_series, chosen_years):
     '''
@@ -471,6 +412,8 @@ def reconstruct(time_scales, reconstructed_time_scales,
 
     if add_offset:
         concat_betas.extend(beta_sheet[-1])
+    else:
+        concat_betas.extend([0.])
 
     # PLots options
     sns.set()
@@ -486,4 +429,49 @@ def reconstruct(time_scales, reconstructed_time_scales,
     plt.xlabel('Days')
     plt.ylabel('Power')
     plt.title(title)
-    plt.show()
+#     plt.show()
+
+    return np.dot(matrix, concat_betas[::-1] )
+def reconstruct_per_ts(A, trans, signal, do_trans, add_offset=False):
+    '''
+    This function proceed to a wavelet decomposition of an input signal for each time scales
+    It returns alist of 15 decomposed signals
+    :param A:
+    :param trans:
+    :param signal:
+    :param do_trans:
+    :param add_offset:
+    :return:
+    '''
+
+    # A = generate_wl_matrix(vecNb_yr, vecNb_week, vecNb_day, time, dpd, trans)
+    A_sparse = sparse.csr_matrix(A)
+    if type(signal) is dict:
+        beta = {}
+        for key in signal.keys():
+            beta[key] = beta_decomposition(A_sparse, signal[key], trans)
+            check_orthogonamoty(beta[key])
+    if type(signal) is np.ndarray:
+        beta = beta_decomposition(A_sparse, signal, trans)
+        # check_orthogonamoty(beta) #todo: the function is not made properly
+
+    reconstructed_signal = {}
+    c = 0
+    # this manipulation with c and i has to be done because in this reconstruct_signal function, times scales go from year to hour, whereas we need the for hour to year.
+    for i in reversed(range(len(time_scale))):
+        use_beta = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        use_beta[i] = 1
+
+        if type(signal) is dict:
+            tmp = {}
+            for key in beta.keys():
+                # tmp[str(key)] = interpolate(reconstruct_signal(A, beta[key], use_beta, do_trans, trans), time_scale[::-1][i], dpd, Nyears_signal)[0]
+                tmp[str(key)] = \
+                    reconstruct_signal(A, beta[key], use_beta, do_trans, trans,  add_offset)
+            reconstructed_signal[c] = tmp
+
+        if type(signal) is np.ndarray:
+            reconstructed_signal[c] = reconstruct_signal(A, beta, use_beta, do_trans, trans, add_offset)
+            #reconstructed_signal[c] =  interpolate(reconstruct_signal(A, beta, use_beta, do_trans, trans), time_scale[::-1][i], dpd, Nyears_signal)[0]
+        c = c + 1
+    return reconstructed_signal

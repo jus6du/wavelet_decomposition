@@ -22,10 +22,11 @@ def plot_betas_heatmap(df, signal_type, year , ndpd,
 
     # Plot aesthetic settings
     sns.set()
-    sns.set_context("notebook", font_scale=1.5, rc={"lines.linewidth": 2.})
+    sns.set_context("paper", font_scale=2, rc={"lines.linewidth": 2.})
     sns.set_style("darkgrid", {"axes.facecolor": ".9"})
     sns.set_palette("colorblind")  # set colors palettte
 
+    plt.rc('font', family='serif')
     # Plot
     # Tick axis definition
     time_scales = ['0.75 ', '1.5', '3 ', '6 ', '12', 'day', '42', '84', 'week', '273.75', '547.5',
@@ -62,6 +63,9 @@ def plot_betas_heatmap(df, signal_type, year , ndpd,
     plt.xlabel('Time (Days)', fontsize=20, fontweight='bold')
     plt.title('Wavelet transform of the signal "'+ signal_type +'" in ' + year , fontsize=20, fontweight='bold')
     plt.ylim(15,0)
+
+
+
     plt.show(block=False)
     plt.pause(3)
     plt.close()
@@ -72,6 +76,8 @@ def fft(ndpd, dpy,
     '''
     Fast Fourrier Transform of input_data
     '''
+    sns.set_context("paper", font_scale=2.5, rc={"lines.linewidth": 2.})
+
     signal_length = dpy * ndpd
     # -----
     # Number of samplepoints
@@ -88,7 +94,7 @@ def fft(ndpd, dpy,
     # --------
     yf_abs = 2.0/N * np.abs(yf[:N//2])
     fig, ax = plt.subplots()
-    fig.set_size_inches(15, 8)
+    fig.set_size_inches(20, 10)
     ax.set_xscale('log')
     plt.plot(yf_abs)
     plt.xlim(0.9,365*64/2)
@@ -103,6 +109,7 @@ def fft(ndpd, dpy,
 #     g.ax.xaxis.set_minor_locator(locmin)
 #     g.ax.xaxis.set_minor_formatter(mticker.NullFormatter())
 
+    plt.rc('font', family='serif')
     # -------------- Vertical lines -----------
     for xc in xcoords:
         plt.axvline(x=xc,linewidth=1.2, color='black', linestyle='--', alpha = 0.5)
@@ -117,9 +124,10 @@ def plot_EPN(emax, pmax, n, uf, serv, time_scales, satisfactions, scenario_name)
     # Aesthetic settings
     # Plot aesthetic settings
     sns.set()
-    sns.set_context("notebook", font_scale=1.5, rc={"lines.linewidth": 2.})
+    sns.set_context("notebook", font_scale=2, rc={"lines.linewidth": 2})
     sns.set_style("darkgrid", {"axes.facecolor": ".9"})
     sns.set_palette("colorblind")  # set colors palettte
+    plt.rc('text', usetex=False)
 
     markers = ['o', 'v', 's', '^', 'o', 'v', 's', '^', 'o', 'v', 's', '^']
     markers = ''.join(markers)
@@ -128,21 +136,21 @@ def plot_EPN(emax, pmax, n, uf, serv, time_scales, satisfactions, scenario_name)
     xcoords = [24, 7 * 24, 30 * 24, 365 * 24]  # verticals black line to spot the day, the week and the month
 
     #     labels = [None, r'10 \%', None, None, r'90 \%',None, None, None, r'100 \%']
-    labels = [str(satis)+' \%' for satis in satisfactions]
+    labels = [str(satis)+' %' for satis in satisfactions]
 
     # ----- Figure settings
 
-    plt.rc('text', usetex=True)  # To get Latex style in the figures
+    # plt.rc('text', usetex=True)  # To get Latex style in the figures
     plt.rc('font', family='serif')
-    plt.rc('xtick', labelsize=22)
-    plt.rc('ytick', labelsize=22)
-    plt.rc('lines', linewidth=2)
+    plt.rc('xtick', labelsize=25)
+    plt.rc('ytick', labelsize=25)
+    plt.rc('lines', linewidth=3)
 
     # Then , one by one
 
     ##---- create figure ----
 
-    fwidth = 10.  # total width of the figure in inches
+    fwidth = 12.  # total width of the figure in inches
     fheight = 8.  # total height of the figure in inches
 
     fig = plt.figure(figsize=(fwidth, fheight))
@@ -178,7 +186,7 @@ def plot_EPN(emax, pmax, n, uf, serv, time_scales, satisfactions, scenario_name)
     plt.figure(figsize=(fwidth, fheight))
     plt.subplot()
 
-    plt.ylabel("Utilization factor factor (\%)")
+    plt.ylabel(r"Utilization factor factor ($\%$)")
     plt.xscale('log')
     plt.xlabel("cycle length (h)")
     plt.xticks([0.75, 3, 10, 24, 168, 720, 8760], ['0.75', '3', '10', 'day', 'week', 'month', 'year'])
