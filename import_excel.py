@@ -32,7 +32,7 @@ def import_excel(path_input_data,input_file, dpd ,ndpd, dpy, time_series, interp
         for yr in years: # loop over the sheets of the excel file
             df = pd.read_excel(path_input_data + input_file,
                                 sheet_name = yr,
-                                name = True,
+#                                names = True,
                                skiprows = 1) # skip firs row
 
             # Cut leap year
