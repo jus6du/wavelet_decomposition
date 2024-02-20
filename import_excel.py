@@ -34,7 +34,10 @@ def import_excel(path_input_data,input_file, dpd ,ndpd, dpy, time_series, interp
                                 sheet_name = yr,
 #                                names = True,
                                skiprows = 1) # skip firs row
-
+                myarray = df.as_matrix()
+                one_d = myarray.ravel()
+                one_d = one_d.astype(float)
+                
             # Cut leap year
             one_yr = df[energy_ts].values
             one_yr = one_yr[0:dpd*dpy]
