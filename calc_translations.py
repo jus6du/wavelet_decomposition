@@ -42,7 +42,7 @@ def calc_best_trans(wavelets, sparse_wavelets, signal_in, ndpd, dpy):
 
     return best_day
 
-def calc_trans(ndpd, dpy, input_data, wl_shape):
+def translate_mother_wavelets(ndpd, dpy, input_data, wl_shape):
     '''
     Compute best translations for each years of the input data
     :param ndpd: data per day
@@ -53,7 +53,7 @@ def calc_trans(ndpd, dpy, input_data, wl_shape):
     '''
     veclength = ndpd*dpy
     Nyears = int(len(input_data)/veclength)
-    assert(dpy*ndpd % len(input_data) ),'Number of years and points are not consistent'
+    assert(dpy*ndpd % len(input_data)==0 ),'Number of years and points are not consistent'
     assert(wl_shape != 'sine' or wl_shape != 'square'), 'Shape error. must be either square or sine_function'
     trans = []
     for k in range(Nyears):
@@ -113,36 +113,12 @@ def calc_trans(ndpd, dpy, input_data, wl_shape):
 
         best_trans_day = calc_best_trans(vec_day, vec_day_sparse, signal_in, ndpd, dpy)
 
-        print([best_trans_day, best_trans_week, best_trans_year])
+        # print([best_trans_day, best_trans_week, best_trans_year])
+        print(f"Best translation day = {best_trans_day}")
+        print(f"Best translation week = {best_trans_week}")
+        print(f"Best translation year = {best_trans_year}")
+        
         trans.append( [best_trans_day, best_trans_week, best_trans_year] )
     return trans
-
-
-def load_trans(path_trans, trans_file, stacked_input_data, signal_type, ndpd, dpy, shape, do_calc = True):
-    '''
-        This function either load or recompute translations and save them.
-        Calculation could take quite some time, go and grab a coffee
-    :param path_trans: whe translations are saved
-    :param trans_file: name of the saved / imported translation file
-    :param stacked_input_data: input_data
-    :param signal_type: 'Consommation', 'Eolien',...
-    :param ndpd: data per day
-    :param dpy: day per year
-    :param shape: 'square' or 'sine_function'
-    :param do_calc: if Truen compute new translations. If false, import
-    :return:
-    '''
-
-    if do_calc:
-        print('Computing translations began...')
-        trans = calc_trans(ndpd, dpy, stacked_input_data[signal_type], wl_shape=shape)
-        pkl.dump(trans, open(path_trans + trans_file + '.p', "wb") )
-        print('Computing translations ended')
-    else:
-        print('Importing translations')
-        trans = pkl.load(open(path_trans + trans_file + '.p', "rb"))
-    return trans
-
-
 
 

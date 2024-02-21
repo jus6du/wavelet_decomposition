@@ -200,7 +200,7 @@ def beta_decomposition(A_sparse, signal_in):
 
 
 
-def compute_betas(time_series,  stacked_data,
+def compute_wavelet_coefficient_betas(time_series,  stacked_data,
                  vecNb_yr, vecNb_week, vecNb_day, dpy, dpd, years,
                  trans,
                  path_matrix,
