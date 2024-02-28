@@ -10,6 +10,7 @@ from scipy.sparse.linalg import lsqr
 import xlsxwriter
 
 from calc_translations import translate
+from miscelaneous_functions import create_directory
 
 '''
 This function generation a matric with square shape wavelets
@@ -200,124 +201,131 @@ def beta_decomposition(A_sparse, signal_in):
 
 
 
-def compute_wavelet_coefficient_betas(input_data,
+def compute_wavelet_coefficient_betas(signal_in,
                  vecNb_yr, vecNb_week, vecNb_day, dpy, dpd, years,
                  trans,
                  path_matrix,
-                 beta_path, wl_shape, imp_matrix = True ):
+                 path_decomposition_results, wl_shape, imp_matrix = True ):
     '''
     This function:
-    - Compute betas for each imput signal
+    - Compute the wavelet coefficients (named betas).
     - Reshape betas from a 1D-array to a dictionnary with N (15) time scales rows
     - Translate in the othert directions the beta
     - Export in an excel document with different sheets
     - Concatenate all years in a signle sheet
     - Export concatenated betas in a disctionnary, with input signals as jeys of the dictionnary
     - wl_shape : takes 2 values, either square ore sine
+
+    It returns :
+    - 2 Excel files in the directoru ath_decomposition_results :
+        * The first gives all decompositions coefficients (names betas) stacked per time sclale. Rhus, if the input data last 2 years, there is two coefficient for the time scale 'year'.
+        * The second excel file returns the results of each year decomposition in a different sheet.
+
+    - Results array...
     '''
+
+    create_directory(path_decomposition_results)
     #
     signal_length = dpy * dpd
 
-    stacked_betas = {}
-    workbook2 = xlsxwriter.Workbook(beta_path + 'betas_stacked.xlsx') #All years are stacked in this excel file. One sheet per input siganm
+    # stacked_betas = {}
+    workbook2 = xlsxwriter.Workbook(path_decomposition_results + 'betas_stacked.xlsx') #All years are stacked in this excel file. One sheet per input siganm
 
-    time_series = ['test']
-    for signal_type in time_series:
+    # signal_type = ['test']
 
-        signal_in = input_data
-#
 # 1) ----- Compute betas for a given input signal -------
 # -------- returns a 1D array with N years stacked
-        betas = []
-        for i, year in enumerate(years):
-            matrix_name = "A_"+ year + ".npz"
-            print(path_matrix + matrix_name)
-            if wl_shape == 'square':
-                A_sparse = generate_square_wl_matrix(vecNb_yr, vecNb_week, vecNb_day, dpy, dpd,
-                                                    trans[i],
-                                                    path_matrix, matrix_name,
-                                                    import_matrix = imp_matrix)
-                print('Square sparsee matrix or year '+ year +' has been imported')
-            elif wl_shape == 'sine':
-                A_sparse = generate_sine_wl_matrix(vecNb_yr, vecNb_week, vecNb_day, dpy, dpd,
-                                                    trans[i],
-                                                    path_matrix, matrix_name,
-                                                    import_matrix = imp_matrix)
-                print('Sine sparse matrix or year '+ year +' has been imported')
-            else:
-                print('The type of wavelet is not defined. Please type "square" or "sine"')
+    betas = []
+    for i, year in enumerate(years):
+        matrix_name = "A_"+ year + ".npz"
+        print(path_matrix + matrix_name)
+        if wl_shape == 'square':
+            A_sparse = generate_square_wl_matrix(vecNb_yr, vecNb_week, vecNb_day, dpy, dpd,
+                                                trans[i],
+                                                path_matrix, matrix_name,
+                                                import_matrix = imp_matrix)
+            print('Square sparsee matrix or year '+ year +' has been imported')
+        elif wl_shape == 'sine':
+            A_sparse = generate_sine_wl_matrix(vecNb_yr, vecNb_week, vecNb_day, dpy, dpd,
+                                                trans[i],
+                                                path_matrix, matrix_name,
+                                                import_matrix = imp_matrix)
+            print('Sine sparse matrix or year '+ year +' has been imported')
+        else:
+            print('The type of wavelet is not defined. Please type "square" or "sine"')
 
-            betas.append(beta_decomposition(A_sparse, signal_in[signal_length*i:signal_length*(i+1)]) )
+        betas.append(beta_decomposition(A_sparse, signal_in[signal_length*i:signal_length*(i+1)]) )
 
-        #
-        # -------- Open Excel file ----------
-        workbook = xlsxwriter.Workbook(beta_path + 'betas.xlsx')
-        row = 0
-        saved_sheets = {}
+    #
+    # -------- Open Excel file ----------
+    workbook = xlsxwriter.Workbook(path_decomposition_results + 'betas.xlsx')
+    row = 0
+    saved_sheets = {}
 #
 # 2) ----- Reshape betas in a list of 16 time scales -------
 # -------- Time scales icludes the offset value
-        for i,beta in enumerate(betas):
-            saved_sheets[years[i]] = []
+    for i,beta in enumerate(betas):
+        saved_sheets[years[i]] = []
 
-            worksheet = workbook.add_worksheet(str(years[i]))
+        worksheet = workbook.add_worksheet(str(years[i]))
 
-            # -- Initialization --
-            len_max = dpy *(2**vecNb_day-1)
-            newsize = dpy *(2**vecNb_day-1)
-            total_vec = vecNb_day+vecNb_week+vecNb_yr # number of time scales
-            sheet = []
+        # -- Initialization --
+        len_max = dpy *(2**vecNb_day-1)
+        newsize = dpy *(2**vecNb_day-1)
+        total_vec = vecNb_day+vecNb_week+vecNb_yr # number of time scales
+        sheet = []
 
-            beta_offset =[beta[0]]
-            beta_year = beta[1 : 1+ 2**vecNb_yr-1] # all betas comming from the yearly motheer wavelet
-            beta_week = beta[1+ 2**vecNb_yr - 1: 1+ 2**vecNb_yr-1 + 52*(2**vecNb_week-1)]
-            beta_day = beta[ 1+ 2**vecNb_yr-1 + 52*(2**vecNb_week-1):  1+ 2**vecNb_yr-1 + 52*(2**vecNb_week-1) + dpy * (2**vecNb_day-1)]
-            #
+        beta_offset =[beta[0]]
+        beta_year = beta[1 : 1+ 2**vecNb_yr-1] # all betas comming from the yearly motheer wavelet
+        beta_week = beta[1+ 2**vecNb_yr - 1: 1+ 2**vecNb_yr-1 + 52*(2**vecNb_week-1)]
+        beta_day = beta[ 1+ 2**vecNb_yr-1 + 52*(2**vecNb_week-1):  1+ 2**vecNb_yr-1 + 52*(2**vecNb_week-1) + dpy * (2**vecNb_day-1)]
+        #
 
-            sheet.append(beta_offset)
-            # --- Year vec ------
-            for k in range(vecNb_yr):
-                sheet.append(beta_year[2 ** k - 1: 2 ** (k + 1) - 1].tolist())
-            # --- Week vec ------
-            for k in range(vecNb_week):
-                sheet.append(beta_week[52 * (2 ** k - 1): 52 * (2 ** (k + 1) - 1)].tolist())
-            # --- Day vec ------
-            for k in range(vecNb_day):
-                sheet.append(beta_day[dpy * (2 ** k - 1):dpy * (2 ** (k + 1) - 1)].tolist())
+        sheet.append(beta_offset)
+        # --- Year vec ------
+        for k in range(vecNb_yr):
+            sheet.append(beta_year[2 ** k - 1: 2 ** (k + 1) - 1].tolist())
+        # --- Week vec ------
+        for k in range(vecNb_week):
+            sheet.append(beta_week[52 * (2 ** k - 1): 52 * (2 ** (k + 1) - 1)].tolist())
+        # --- Day vec ------
+        for k in range(vecNb_day):
+            sheet.append(beta_day[dpy * (2 ** k - 1):dpy * (2 ** (k + 1) - 1)].tolist())
 
 
-            # Reverse the list order
-            sheet = [sh[::-1] for sh in reversed(sheet) ]
+        # Reverse the list order
+        sheet = [sh[::-1] for sh in reversed(sheet) ]
 
-            saved_sheets[years[i]] = sheet
+        saved_sheets[years[i]] = sheet
 
-            for col, data in enumerate(sheet):
-                worksheet.write_column(row, col, data)
+        for col, data in enumerate(sheet):
+            worksheet.write_column(row, col, data)
 
-            if len(saved_sheets[years[i]][-1])>1:
-                print('error1')
+        if len(saved_sheets[years[i]][-1])>1:
+            print('error1')
 
-        workbook.close()
+
+    workbook.close()
 #
 # 3) ----- Stack all betas in a 16 dimensions time scale list  -------
 
-        worksheet2 = workbook2.add_worksheet(signal_type)
-        row = 0
-        # Initialization
-        stacked_sheet = [None] * len(saved_sheets[years[0]])
+    worksheet2 = workbook2.add_worksheet('Wavelet decomposition results')
+    row = 0
+    # Initialization
+    stacked_sheet = [None] * len(saved_sheets[years[0]])
 
-        for ts in range(len(stacked_sheet)):
-            tmp = []
-            for i in range(len(years)):
-                tmp.extend(saved_sheets[years[i]][ts])
+    for ts in range(len(stacked_sheet)):
+        tmp = []
+        for i in range(len(years)):
+            tmp.extend(saved_sheets[years[i]][ts])
 
-            stacked_sheet[ts] = tmp
+        stacked_sheet[ts] = tmp
 
-        for col, data in enumerate(stacked_sheet):
-            worksheet2.write_column(row, col, data)
+    for col, data in enumerate(stacked_sheet):
+        worksheet2.write_column(row, col, data)
 
-        stacked_betas[signal_type] = stacked_sheet
-        #
+    stacked_betas = stacked_sheet
+    #
     workbook2.close()
 
     return stacked_betas, saved_sheets
