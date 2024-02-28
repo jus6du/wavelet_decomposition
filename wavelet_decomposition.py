@@ -200,7 +200,7 @@ def beta_decomposition(A_sparse, signal_in):
 
 
 
-def compute_wavelet_coefficient_betas(stacked_data,
+def compute_wavelet_coefficient_betas(input_data,
                  vecNb_yr, vecNb_week, vecNb_day, dpy, dpd, years,
                  trans,
                  path_matrix,
@@ -224,7 +224,7 @@ def compute_wavelet_coefficient_betas(stacked_data,
     time_series = ['test']
     for signal_type in time_series:
 
-        signal_in = stacked_data
+        signal_in = input_data
 #
 # 1) ----- Compute betas for a given input signal -------
 # -------- returns a 1D array with N years stacked
