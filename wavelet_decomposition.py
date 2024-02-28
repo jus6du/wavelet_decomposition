@@ -200,7 +200,7 @@ def beta_decomposition(A_sparse, signal_in):
 
 
 
-def compute_wavelet_coefficient_betas(time_series,  stacked_data,
+def compute_wavelet_coefficient_betas(stacked_data,
                  vecNb_yr, vecNb_week, vecNb_day, dpy, dpd, years,
                  trans,
                  path_matrix,
@@ -221,10 +221,10 @@ def compute_wavelet_coefficient_betas(time_series,  stacked_data,
     stacked_betas = {}
     workbook2 = xlsxwriter.Workbook(beta_path + 'betas_stacked.xlsx') #All years are stacked in this excel file. One sheet per input siganm
 
-    saved_sheets = {}
+    time_series = ['test']
     for signal_type in time_series:
 
-        signal_in = stacked_data[signal_type]
+        signal_in = stacked_data
 #
 # 1) ----- Compute betas for a given input signal -------
 # -------- returns a 1D array with N years stacked
@@ -251,14 +251,14 @@ def compute_wavelet_coefficient_betas(time_series,  stacked_data,
 
         #
         # -------- Open Excel file ----------
-        workbook = xlsxwriter.Workbook(beta_path + 'betas_'+ signal_type + '.xlsx')
+        workbook = xlsxwriter.Workbook(beta_path + 'betas.xlsx')
         row = 0
-        saved_sheets[signal_type] = {}
+        saved_sheets = {}
 #
 # 2) ----- Reshape betas in a list of 16 time scales -------
 # -------- Time scales icludes the offset value
         for i,beta in enumerate(betas):
-            saved_sheets[signal_type][years[i]] = []
+            saved_sheets[years[i]] = []
 
             worksheet = workbook.add_worksheet(str(years[i]))
 
@@ -286,15 +286,15 @@ def compute_wavelet_coefficient_betas(time_series,  stacked_data,
                 sheet.append(beta_day[dpy * (2 ** k - 1):dpy * (2 ** (k + 1) - 1)].tolist())
 
 
-            #reverse the list order
+            # Reverse the list order
             sheet = [sh[::-1] for sh in reversed(sheet) ]
 
-            saved_sheets[signal_type][years[i]] = sheet
+            saved_sheets[years[i]] = sheet
 
             for col, data in enumerate(sheet):
                 worksheet.write_column(row, col, data)
 
-            if len(saved_sheets[signal_type][years[i]][-1])>1:
+            if len(saved_sheets[years[i]][-1])>1:
                 print('error1')
 
         workbook.close()
@@ -304,12 +304,12 @@ def compute_wavelet_coefficient_betas(time_series,  stacked_data,
         worksheet2 = workbook2.add_worksheet(signal_type)
         row = 0
         # Initialization
-        stacked_sheet = [None] * len(saved_sheets[signal_type][years[0]])
+        stacked_sheet = [None] * len(saved_sheets[years[0]])
 
         for ts in range(len(stacked_sheet)):
             tmp = []
             for i in range(len(years)):
-                tmp.extend(saved_sheets[signal_type][years[i]][ts])
+                tmp.extend(saved_sheets[years[i]][ts])
 
             stacked_sheet[ts] = tmp
 
@@ -323,12 +323,11 @@ def compute_wavelet_coefficient_betas(time_series,  stacked_data,
     return stacked_betas, saved_sheets
 
 def preplotprocessing(vecNb_yr, vecNb_week , vecNb_day, ndpd, dpy,
-                    signal_type, year, years, time_scales, saved_sheets, matrix):
+                    year, years, time_scales, saved_sheets, matrix):
     '''
-    Preprocess waveley sheets for plot_betas_heatmap() function
+    Preprocess wavelet sheets for plot_betas_heatmap() function
 This function takes as imputs:
     - saved_sheets
-    - signal_type : 'Consommation' or 'Eolien'...
     - list of years included. e.g. ['2012', '2013',...]
     - year : e.g. '2012'
 
@@ -343,13 +342,13 @@ What it does:
     Nb_vec = vecNb_yr + vecNb_week + vecNb_day
     max_nb_betas = dpy*ndpd
 
-    assert(Nb_vec+1 == len(saved_sheets[signal_type][year]) ), 'There is not the right number of time scales' # +1 stands for the offset value
+    assert(Nb_vec+1 == len(saved_sheets[year]) ), 'There is not the right number of time scales' # +1 stands for the offset value
     # Create an empty DataFrame (nan)
     df = pd.DataFrame(np.nan, index=range(Nb_vec), columns=range(max_nb_betas)).transpose()
 
     for k,ts in enumerate(time_scales):
         new_vec = reconstruct(time_scales, [ts],
-                    matrix, saved_sheets[signal_type][year], "Consommation électrique Française normalisée, 2013",
+                    matrix, saved_sheets[year], "Consommation électrique Française normalisée, 2013",
                     xmin=0, xmax=365,
                     dpy=dpy, dpd=ndpd,
                     add_offset=False)
