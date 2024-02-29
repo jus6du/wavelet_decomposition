@@ -193,7 +193,7 @@ def generate_sine_wl_matrix(vecNb_yr, vecNb_week, vecNb_day, dpy, dpd,
     return A_sparse
 
 
-def beta_decomposition(A_sparse, signal_in):
+def perform_wavelet_decomposition(A_sparse, signal_in):
     # A_sparse = sparse.csr_matrix(A)
     beta_lsqr = lsqr(A_sparse, signal_in, damp=0.001, atol=0, btol=0, conlim=0)[0]
     # Damping coefficient has to be smaller than 0.1. when damp gets big, we loose the reconstruction ( from damp=0.1). When too small, we loose linearity
@@ -202,10 +202,11 @@ def beta_decomposition(A_sparse, signal_in):
 
 
 def compute_wavelet_coefficient_betas(signal_in,
-                 vecNb_yr, vecNb_week, vecNb_day, dpy, dpd, years,
+                 vecNb_yr, vecNb_week, vecNb_day, dpy, dpd,
                  trans,
                  path_matrix,
-                 path_decomposition_results, wl_shape, imp_matrix = True ):
+                 path_decomposition_results, wl_shape, imp_matrix = True,
+                  years = None ):
     '''
     This function:
     - Compute the wavelet coefficients (named betas).
@@ -215,6 +216,8 @@ def compute_wavelet_coefficient_betas(signal_in,
     - Concatenate all years in a signle sheet
     - Export concatenated betas in a disctionnary, with input signals as jeys of the dictionnary
     - wl_shape : takes 2 values, either square ore sine
+    - years is a list od year of the input time serie. For istance ['2017' , '2018']
+      if years = Npne, it would be replaced by years = ['0', '1']
 
     It returns :
     - 2 Excel files in the directoru ath_decomposition_results :
@@ -226,12 +229,14 @@ def compute_wavelet_coefficient_betas(signal_in,
 
     create_directory(path_decomposition_results)
     #
-    signal_length = dpy * dpd
+    signal_length = len(signal_in)
+    assert (signal_length % (dpy * dpd) == 0), 'The signal length is not an integer number of years.'
 
-    # stacked_betas = {}
-    workbook2 = xlsxwriter.Workbook(path_decomposition_results + 'betas_stacked.xlsx') #All years are stacked in this excel file. One sheet per input siganm
+    N_years = int(signal_length/(dpy * dpd))
+    if years is None:
+        years = [str(y) for y in range(N_years)] 
 
-    # signal_type = ['test']
+    workbook2 = xlsxwriter.Workbook(path_decomposition_results + 'betas_stacked.xlsx') #The results of the decomposition of each year are stacked in this sheet. 
 
 # 1) ----- Compute betas for a given input signal -------
 # -------- returns a 1D array with N years stacked
@@ -254,7 +259,9 @@ def compute_wavelet_coefficient_betas(signal_in,
         else:
             print('The type of wavelet is not defined. Please type "square" or "sine"')
 
-        betas.append(beta_decomposition(A_sparse, signal_in[signal_length*i:signal_length*(i+1)]) )
+        start_index = int(signal_length/N_years*i)
+        end_index = int(signal_length/N_years*(i+1))
+        betas.append(perform_wavelet_decomposition(A_sparse, signal_in[start_index:end_index]) )
 
     #
     # -------- Open Excel file ----------
@@ -456,10 +463,10 @@ def reconstruct_per_ts(A, trans, signal, do_trans, add_offset=False):
     if type(signal) is dict:
         beta = {}
         for key in signal.keys():
-            beta[key] = beta_decomposition(A_sparse, signal[key], trans)
+            beta[key] = perform_wavelet_decomposition(A_sparse, signal[key], trans)
             check_orthogonamoty(beta[key])
     if type(signal) is np.ndarray:
-        beta = beta_decomposition(A_sparse, signal, trans)
+        beta = perform_wavelet_decomposition(A_sparse, signal, trans)
         # check_orthogonamoty(beta) #todo: the function is not made properly
 
     reconstructed_signal = {}

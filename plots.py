@@ -14,7 +14,7 @@ import xlsxwriter
 import matplotlib.ticker as mticke
 from wavelet_decomposition import preplotprocessing
 
-def plot_betas_heatmap(df, signal_type, year , ndpd,
+def plot_betas_heatmap(df, name, year , ndpd,
                       cmin = None, cmax= None, ccenter = None):
     '''
     Here we plot the absolute value of betas dataframe
@@ -61,7 +61,7 @@ def plot_betas_heatmap(df, signal_type, year , ndpd,
     ax.set_xticklabels(time, minor=False, rotation=0)
     plt.ylabel('Storage time scale (hours)', fontsize=20, fontweight='bold')
     plt.xlabel('Time (Days)', fontsize=20, fontweight='bold')
-    plt.title('Wavelet transform of the signal "'+ signal_type +'" in ' + year , fontsize=20, fontweight='bold')
+    plt.title('Wavelet transform of the signal "'+ name +'" in ' + year , fontsize=20, fontweight='bold')
     plt.ylim(15,0)
 
 
