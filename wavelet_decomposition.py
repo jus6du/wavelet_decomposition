@@ -236,7 +236,7 @@ def compute_wavelet_coefficient_betas(signal_in,
     if years is None:
         years = [str(y) for y in range(N_years)] 
 
-    workbook2 = xlsxwriter.Workbook(path_decomposition_results + 'betas_stacked.xlsx') #The results of the decomposition of each year are stacked in this sheet. 
+    workbook2 = xlsxwriter.Workbook(path_decomposition_results + 'results_betas_stacked.xlsx') #The results of the decomposition of each year are stacked in this sheet. 
 
 # 1) ----- Compute betas for a given input signal -------
 # -------- returns a 1D array with N years stacked
@@ -265,14 +265,14 @@ def compute_wavelet_coefficient_betas(signal_in,
 
     #
     # -------- Open Excel file ----------
-    workbook = xlsxwriter.Workbook(path_decomposition_results + 'betas.xlsx')
+    workbook = xlsxwriter.Workbook(path_decomposition_results + 'results_per_year_betas.xlsx')
     row = 0
-    saved_sheets = {}
+    per_year_betas = {}
 #
 # 2) ----- Reshape betas in a list of 16 time scales -------
 # -------- Time scales icludes the offset value
     for i,beta in enumerate(betas):
-        saved_sheets[years[i]] = []
+        per_year_betas[years[i]] = []
 
         worksheet = workbook.add_worksheet(str(years[i]))
 
@@ -303,12 +303,12 @@ def compute_wavelet_coefficient_betas(signal_in,
         # Reverse the list order
         sheet = [sh[::-1] for sh in reversed(sheet) ]
 
-        saved_sheets[years[i]] = sheet
+        per_year_betas[years[i]] = sheet
 
         for col, data in enumerate(sheet):
             worksheet.write_column(row, col, data)
 
-        if len(saved_sheets[years[i]][-1])>1:
+        if len(per_year_betas[years[i]][-1])>1:
             print('error1')
 
 
@@ -319,12 +319,12 @@ def compute_wavelet_coefficient_betas(signal_in,
     worksheet2 = workbook2.add_worksheet('Wavelet decomposition results')
     row = 0
     # Initialization
-    stacked_sheet = [None] * len(saved_sheets[years[0]])
+    stacked_sheet = [None] * len(per_year_betas[years[0]])
 
     for ts in range(len(stacked_sheet)):
         tmp = []
         for i in range(len(years)):
-            tmp.extend(saved_sheets[years[i]][ts])
+            tmp.extend(per_year_betas[years[i]][ts])
 
         stacked_sheet[ts] = tmp
 
@@ -335,7 +335,7 @@ def compute_wavelet_coefficient_betas(signal_in,
     #
     workbook2.close()
 
-    return stacked_betas, saved_sheets
+    return stacked_betas, per_year_betas
 
 def preplotprocessing(vecNb_yr, vecNb_week , vecNb_day, ndpd, dpy,
                     year, years, time_scales, saved_sheets, matrix):
