@@ -68,7 +68,7 @@ def generate_square_wl_matrix(vecNb_yr, vecNb_week, vecNb_day, dpy, dpd,
                 Phi2[c, (2 * i + 1) * Dt // 2: (i +1) * Dt] = -1.# / math.sqrt(Dt)
                 Phi2[c,:] = translate(Phi2[c,:], -transweek)
                 c = c +1
-                i= i + 1
+                i = i + 1
             Dt = Dt // 2
 
         ## Phi3 seconde set of wavelets
@@ -310,7 +310,6 @@ def compute_wavelet_coefficient_betas(signal_in,
 
         if len(per_year_betas[years[i]][-1])>1:
             print('error1')
-
 
     workbook.close()
 #
