@@ -64,7 +64,7 @@ def calculate_all_translations(path_trans, translation_name,
     # Check if the file exists and is consistent with the number of years of the input signal. If not, recomputing the translations
     filename_pkl = os.path.join(os.getcwd(), path_trans, 'results_translation_'+ translation_name +'.pkl')
 
-    if os.path.exists(filename_pkl):
+    if os.path.exists(filename_pkl) and not recompute_translation:
         # Load the data from the 'results_translation.pkl' file if its size is consistent with the number of year of the input signal
         with open(filename_pkl, 'rb') as file:
             trans = pkl.load(file)

@@ -216,11 +216,11 @@ def compute_wavelet_coefficient_betas(signal_in,
     - Concatenate all years in a signle sheet
     - Export concatenated betas in a disctionnary, with input signals as jeys of the dictionnary
     - wl_shape : takes 2 values, either square ore sine
-    - years is a list od year of the input time serie. For istance ['2017' , '2018']
-      if years = Npne, it would be replaced by years = ['0', '1']
+    - years is a list of year of the input time serie. For istance ['2017' , '2018']
+      if years = None, it would be replaced by years = ['0', '1']
 
     It returns :
-    - 2 Excel files in the directoru ath_decomposition_results :
+    - 2 Excel files in the directory ath_decomposition_results :
         * The first gives all decompositions coefficients (names betas) stacked per time sclale. Rhus, if the input data last 2 years, there is two coefficient for the time scale 'year'.
         * The second excel file returns the results of each year decomposition in a different sheet.
 
@@ -242,6 +242,7 @@ def compute_wavelet_coefficient_betas(signal_in,
 # -------- returns a 1D array with N years stacked
     betas = []
     for i, year in enumerate(years):
+        print(i,year)
         matrix_name = "A_"+ year + ".npz"
         print(path_matrix + matrix_name)
         if wl_shape == 'square':
