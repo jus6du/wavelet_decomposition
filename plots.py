@@ -274,3 +274,106 @@ def plot_EPN(emax, pmax, n, uf, serv, time_scales, satisfactions, scenario_name)
     plt.title(scenario_name)
 
     plt.show()
+
+
+def plot_E_diff_countries(list_of_emax, list_of_countries, time_scales, satisfactions, satisfaction):
+
+    position = satisfactions.index(satisfaction)
+
+    # Aesthetic settings
+    # Plot aesthetic settings
+    sns.set()
+    sns.set_context("notebook", font_scale=2, rc={"lines.linewidth": 2})
+    sns.set_style("darkgrid", {"axes.facecolor": ".9"})
+    sns.set_palette("colorblind")  # set colors palettte
+    plt.rc('text', usetex=False)
+
+    markers = ['o', 'v', 's', '^', 'o', 'v', 's', '^', 'o', 'v', 's', '^']
+    markers = ''.join(markers)
+    mark_size = 10
+
+    xcoords = [24, 7 * 24, 30 * 24, 365 * 24]  # verticals black line to spot the day, the week and the month
+
+    #     labels = [None, r'10 \%', None, None, r'90 \%',None, None, None, r'100 \%']
+    labels = list_of_countries
+
+    # ----- Figure settings
+
+    # plt.rc('text', usetex=True)  # To get Latex style in the figures
+    plt.rc('font', family='serif')
+    plt.rc('xtick', labelsize=25)
+    plt.rc('ytick', labelsize=25)
+    plt.rc('lines', linewidth=3)
+
+    ##---- create figure ----
+
+    fwidth = 12.  # total width of the figure in inches
+    fheight = 8.  # total height of the figure in inches
+
+    fig = plt.figure(figsize=(fwidth, fheight))
+
+    # ---- define margins -> size in inches / figure dimension ----
+
+    left_margin = 0.95 / fwidth
+    right_margin = 0.2 / fwidth
+    bottom_margin = 0.5 / fheight
+    top_margin = 0.25 / fheight
+
+    #     #---- create axes ----
+
+    #     # dimensions are calculated relative to the figure size
+
+    x = left_margin  # horiz. position of bottom-left corner
+    y = bottom_margin  # vert. position of bottom-left corner
+    w = 1 - (left_margin + right_margin)  # width of axes
+    h = 1 - (bottom_margin + top_margin)  # height of axes
+
+    ax = fig.add_axes([x, y, w, h])
+
+    #     #---- Define the Ylabel position ----
+
+    # Location are defined in dimension relative to the figure size
+
+    xloc = 0.25 / fwidth
+    yloc = y + h / 2.
+
+    plt.close('all')
+    ##
+    
+    ##
+    # Energy
+    plt.figure(figsize=(fwidth, fheight))
+    plt.subplot()
+    plt.yscale('log')
+    plt.ylabel('Energy (MWh)')
+    plt.xlabel("cycle length (h)")
+    plt.xscale('log')
+    plt.xticks([0.75, 3, 10, 24, 168, 720, 8760], ['0.75', '3', '10', 'day', 'week', 'month', 'year'])
+
+    plt.grid(True, which="both")
+    for emax in list_of_emax:
+        lines = plt.plot(time_scales, emax[:,position])
+        
+        for i in range(len(lines)):
+           lines[i].set_visible(labels[i] is not None)
+           lines[i].set_marker(markers[i])
+           lines[i].set_markersize(mark_size)
+    for xc in xcoords:
+        plt.axvline(x=xc, linewidth=1.2, color='black', linestyle='--')
+
+    ax.set_ylabel('yLabel', fontsize=16, verticalalignment='top',
+                  horizontalalignment='center')
+    ax.yaxis.set_label_coords(xloc, yloc, transform=fig.transFigure)
+    plt.tight_layout()
+    plt.legend(labels)
+    # plt.legend([lines[i] for i, lab in enumerate(labels) if lab is not None],
+    #           [labels[i] for i, lab in enumerate(labels) if lab is not None], loc='upper left')
+
+    plt.title('Different countries')
+    #     plt.savefig(save_directory+data_name +'_energy' +'.'+ extension,  dpi=600, bbox_inches = 'tight')
+
+    
+    plt.show()
+
+
+    return

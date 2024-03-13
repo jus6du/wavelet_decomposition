@@ -14,7 +14,7 @@ def import_excel(path_input_data,input_file, dpd ,ndpd, dpy, interp=True):
     '''
     interp : Shall we interpolate drom dpd to ndpd. True or False
     dpd : data per day
-    ndpd : new sata per day
+    ndpd : new data per day
     Returns a disctionnary with stacked time series over the N years of the excel file. Each year is normalized and interpolated (if true)
     '''
     input_data = pd.ExcelFile(path_input_data + input_file)

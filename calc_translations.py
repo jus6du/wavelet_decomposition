@@ -68,7 +68,7 @@ def calculate_all_translations(path_trans, translation_name,
         # Load the data from the 'results_translation.pkl' file if its size is consistent with the number of year of the input signal
         with open(filename_pkl, 'rb') as file:
             trans = pkl.load(file)
-        if len(trans) == Nyears and not recompute_translation:
+        if len(trans) == Nyears :
             print(f"Loading existing translation file: {filename_pkl}")
     else:
         # File does not exist, so compute the translation
