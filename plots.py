@@ -276,7 +276,7 @@ def plot_EPN(emax, pmax, n, uf, serv, time_scales, satisfactions, scenario_name)
     plt.show()
 
 
-def plot_E_diff_countries(list_of_emax, list_of_countries, time_scales, satisfactions, satisfaction):
+def plot_E_diff_countries(list_of_emax, list_of_countries, time_scales, satisfaction, satisfactions):
 
     position = satisfactions.index(satisfaction)
 
