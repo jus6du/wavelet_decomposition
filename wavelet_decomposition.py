@@ -242,7 +242,7 @@ def compute_wavelet_coefficient_betas(signal_in,
 # -------- returns a 1D array with N years stacked
     betas = []
     for i, year in enumerate(years):
-        print(i,year)
+        #print(i,year)
         matrix_name = "A_"+ year + ".npz"
         print(path_matrix + matrix_name)
         if wl_shape == 'square':
