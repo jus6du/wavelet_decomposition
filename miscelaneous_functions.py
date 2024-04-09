@@ -27,3 +27,4 @@ def fill_missing_values(start_date, end_date, data, method = 'linear'):
     data_reindexed = data.reindex(date_range)
     data_interpolated = data_reindexed.interpolate(method="linear")
     return data_interpolated
+
