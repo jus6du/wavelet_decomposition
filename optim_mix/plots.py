@@ -49,10 +49,10 @@ def plot_stack_production(PV, wind, dispatch, country_name, colors = colors_dict
     fig.show()
     return
 
-def plot_pie_energy(list_energy, country_name, names = ['Wind', 'PV', 'Dispatchable'], colors = ['rgb(255, 128, 128)', 'rgb(128, 255, 128)', 'rgb(128, 128, 255)'], savefig=False):
+def plot_pie_energy(list_energy, country_name, names = ['Wind', 'PV', 'Dispatchable'], colors_dict = colors_dict, savefig=False):
     fig = px.pie(names=names,
                 values=list_energy,
-                color_discrete_sequence=colors,  # Utiliser color_discrete_sequence pour définir les couleurs
+                color_discrete_map=colors_dict,  # Utiliser color_discrete_sequence pour définir les couleurs
                 title='Energy Production')
     fig.update_traces(textposition='inside', textinfo='percent+label')
     # Write HTML file
