@@ -14,7 +14,7 @@ colors_dict = {
     'Curtailment': '#17becf'    
 }
 
-def plot_ts_optim(list_arrays, list_names, country_name, savefig = False):
+def plot_ts_optim(list_arrays, list_names, country_name, colors_dict = colors_dict, savefig = False):
     fig = go.Figure()
     signal_length = len(list_arrays[0])
     for i in range(len(list_arrays)):
@@ -34,14 +34,14 @@ def plot_ts_optim(list_arrays, list_names, country_name, savefig = False):
     
     return
 
-def plot_stack_production(PV, wind, dispatch, country_name, colors = colors_dict, savefig=False):
+def plot_stack_production(PV, wind, dispatch, country_name, colors_dict = colors_dict, savefig=False):
     # Plot the stacked production
     fig = go.Figure()
     signal_length = len(PV)
-    # Add the stacked production trace
-    fig.add_trace(go.Scatter(x=list(range(signal_length)), y=PV, mode='lines', name='PV', stackgroup = 'one',marker=dict(color=colors['PV'])))
-    fig.add_trace(go.Scatter(x=list(range(signal_length)), y=wind, mode='lines', name='Wind', stackgroup = 'one',marker=dict(color=colors['Wind'])))
-    fig.add_trace(go.Scatter(x=list(range(signal_length)), y=dispatch, mode='lines', name='Dispatchable', stackgroup = 'one', marker=dict(color=colors['Dispatchable'])))
+        # Add the stacked production trace
+    fig.add_trace(go.Scatter(x=list(range(signal_length)), y=PV, mode='lines', name='PV', stackgroup = 'one',marker=dict(color=colors_dict['PV'])))
+    fig.add_trace(go.Scatter(x=list(range(signal_length)), y=wind, mode='lines', name='Wind', stackgroup = 'one',marker=dict(color=colors_dict['Wind'])))
+    fig.add_trace(go.Scatter(x=list(range(signal_length)), y=dispatch, mode='lines', name='Dispatchable', stackgroup = 'one', marker=dict(color=colors_dict['Dispatchable'])))
 
     if savefig:
         fig.write_html(f"figures/{country_name}_optim_stacked_prod_ts.html")
@@ -50,20 +50,18 @@ def plot_stack_production(PV, wind, dispatch, country_name, colors = colors_dict
     return
 
 def plot_pie_energy(list_energy, country_name, names = ['Wind', 'PV', 'Dispatchable'], colors_dict = colors_dict, savefig=False):
-    fig = px.pie(names=names,
-                values=list_energy,
-                color_discrete_map=colors_dict,  # Utiliser color_discrete_sequence pour définir les couleurs
-                title='Energy Production')
-    fig.update_traces(textposition='inside', textinfo='percent+label')
-    # Write HTML file
+    # Map the colors to the labels maintaining the order
+    colors = [colors_dict[label] for label in names]
+
+    fig = go.Figure(data=[go.Pie(labels=names, values=list_energy, marker=dict(colors=colors), textinfo='label+percent')])
+
     if savefig:
         fig.write_html(f"figures/{country_name}_optim_pie_chart.html")
 
-    # Show the plot
     fig.show()
     return
 
-def plot_storage(charge, discharge, SOC, country_name, colors = colors_dict, savefig = False):
+def plot_storage(charge, discharge, SOC, country_name, colors_dict = colors_dict, savefig = False):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("Charge/Discharge", "State of Charge (SOC)"))
 
     signal_length = len(charge)
