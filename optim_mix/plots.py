@@ -4,14 +4,14 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 
 colors_dict = {
-    'Wind': 'rgb(255, 128, 128)',        
-    'PV': 'rgb(128, 255, 128)',
-    'Discharge': '#ff7f0e',    
-    'SOC': '#2ca02c',           
-    'Charge': '#9467bd',
-    'Consumption': '#e377c2',          
-    'Dispatchable': 'rgb(128, 128, 255)',       
-    'Curtailment': '#17becf'    
+    'Wind': 'steelblue',        
+    'PV': 'gold',
+    'Discharge': 'orangered',    
+    'SOC': 'darkgreen',           
+    'Charge': 'purple',
+    'Consumption': 'green',          
+    'Dispatchable': 'crimson',       
+    'Curtailment': 'cyan'    
 }
 
 def plot_ts_optim(list_arrays, list_names, country_name, colors_dict = colors_dict, savefig = False):
