@@ -155,3 +155,18 @@ def optimize_enr(country_name, Load_ts, PV_ts, Wind_ts, mean_load, save_results 
         print(f"Optimization results saved to "+filename)
 
     return results
+
+
+def format_load_data(country_name):
+    file_path = f'../input_time_series/{country_name}/{country_name}_demand_Plexos_2015.xlsx'
+    
+    if os.path.exists(file_path):
+        pass
+    else: 
+        country_codes = pd.read_csv('../countries_codes_and_coordinates.csv' , sep = ',', index_col = 0)
+        data = pd.read_csv('../input_time_series/All Demand UTC 2015.csv', index_col =0)
+        iso_code = country_codes.loc[country_name,'Alpha-3 code' ].split(' ')[1]
+        column_name = data.columns[data.columns.str.endswith(iso_code)].item()
+        data[column_name].to_excel(file_path, index =False)
+        
+    return file_path.split('/',2)[-1]
