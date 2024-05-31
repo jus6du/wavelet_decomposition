@@ -154,5 +154,4 @@ def optimize_enr(country_name, Load_ts, PV_ts, Wind_ts, mean_load, save_results 
 
         print(f"Optimization results saved to "+filename)
 
-    optimization_results = pd.read_pickle(f'results/{country_name}/optimization_results.pickle')
     return results
