@@ -124,6 +124,8 @@ def optimize_enr(country_name, Load_ts, PV_ts, Wind_ts, mean_load, save_results 
     E_stock = np.sum(optimized_charge)*mean_load
     E_destock = np.sum(optimized_discharge)*mean_load
 
+    country_codes = pd.read_csv('../countries_codes_and_coordinates.csv' , sep = ',', index_col = 0)
+    iso_code = country_codes.loc[country_name,'Alpha-3 code' ].split(' ')[1]
     
     results = {
     'optimized_pv': optimized_pv,
@@ -144,11 +146,13 @@ def optimize_enr(country_name, Load_ts, PV_ts, Wind_ts, mean_load, save_results 
     'E_curt':E_curt, 
     'E_loss':E_loss, 
     'E_stock':E_stock,
-    'E_destock':E_destock
+    'E_destock':E_destock, 
+    'iso_alpha':iso_code
 }
     if save_results :
         filename = f'results/{country_name}/optimization_results.pickle'
-
+        if not os.path.exists(f'results/{country_name}'):
+            os.makedirs(f'results/{country_name}')
         with open(filename, 'wb') as pickle_file:
             pickle.dump(results, pickle_file)
 
@@ -159,7 +163,8 @@ def optimize_enr(country_name, Load_ts, PV_ts, Wind_ts, mean_load, save_results 
 
 def format_load_data(country_name):
     file_path = f'../input_time_series/{country_name}/{country_name}_demand_Plexos_2015.xlsx'
-    
+    if not os.path.exists(f'../input_time_series/{country_name}/'):
+        os.makedirs(f'../input_time_series/{country_name}/')
     if os.path.exists(file_path):
         pass
     else: 
