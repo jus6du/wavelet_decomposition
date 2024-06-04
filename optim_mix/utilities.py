@@ -39,6 +39,8 @@ def import_excel(path_input_data,input_file, dpd ,ndpd, dpy, interp=True, norm =
             mean = np.mean(sublist)
         elif norm == 'max':
             mean = np.max(sublist)
+        else:
+            mean = 1
         one_d[i * dataperyear: (i + 1) * dataperyear] = sublist / mean
     one_d = one_d[0:nfullyears * dataperyear]
 
