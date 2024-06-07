@@ -7,6 +7,8 @@ import io
 import geopandas as gpd
 from shapely.geometry import Point
 import numpy as np
+import matplotlib.pyplot as plt
+import geopandas as gpd
 
 # Your Renewable Ninja API token
 api_token = 'e2be88b4f8ae85f401fdf6b205165098e3cf4e37'
@@ -78,6 +80,64 @@ def coordinates_in_country(country_name, points_in_world):
         for point in df_points_in_country['geometry']:
             coordinates.append((point.y, point.x))
     return coordinates
+
+def grid_coordinates(spacing, plot = False, savefile = False):
+    # Charger les données de la carte du monde
+    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+    world = world.to_crs(epsg=4326)
+    # Définir les limites de la grille
+    min_lon, min_lat, max_lon, max_lat = -180, -90, 180, 90
+    grid_spacing = spacing  # espacement de 10 degrés
+
+    # Générer les points de la grille
+    lons = np.arange(min_lon, max_lon, grid_spacing)
+    lats = np.arange(min_lat, max_lat, grid_spacing)
+    grid_points = [Point(lon, lat) for lon in lons for lat in lats]
+
+    # Créer un GeoDataFrame pour les points de la grille
+    grid_df = gpd.GeoDataFrame(geometry=grid_points, crs=world.crs)
+
+    # Extraire les centroïdes des pays
+    centroids = world.centroid
+
+    # Créer un GeoDataFrame pour les centroïdes
+    centroids_df = gpd.GeoDataFrame(geometry=centroids, crs=world.crs)
+
+    # Ajouter le centroïde de la France métropolitaine
+    france = world[world.name == "France"]
+    # Filtrer la France métropolitaine (la plus grande géométrie)
+    france_metropolitan = france.loc[france.geometry.area.idxmax()]
+    france_centroid = france_metropolitan.geometry.centroid
+
+    # Créer un GeoDataFrame pour le centroïde de la France métropolitaine
+    france_centroid_df = gpd.GeoDataFrame(geometry=[france_centroid], crs=world.crs)
+
+    # Fusionner les points de la grille et les centroïdes
+    all_points = pd.concat([grid_df, centroids_df, france_centroid_df], ignore_index=True)
+
+    # Filtrer les points pour enlever ceux situés en Antarctique
+    all_points['latitude'] = all_points.geometry.apply(lambda p: p.y)
+    all_points = all_points[all_points['latitude'] > -60]
+
+    # Vérifier quels points sont dans les frontières des pays
+    points_in_world = gpd.sjoin(all_points, world, op='within', how='inner')
+
+    if savefile:
+        # Sauvegarder la grille pour future utilisation
+        output_path = 'grid_with_centroids.geojson'
+        points_in_world.to_file(output_path, driver='GeoJSON')
+    if plot:
+        # Visualiser la grille et les centroïdes sur la carte du monde
+        fig, ax = plt.subplots(figsize=(15, 10))
+        world.plot(ax=ax, color='lightgray')
+        points_in_world.plot(ax=ax, color='red', markersize=5)
+
+        plt.title('Regular Grid of Coordinates with Country Centroids')
+        plt.xlabel('Longitude')
+        plt.ylabel('Latitude')
+        plt.show()
+
+    return points_in_world
 
 def get_renewable_data(lat, lon, technology, year=2021):
     headers = {
