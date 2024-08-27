@@ -278,6 +278,228 @@ def optimize_enr(country_name, Load_ts, PV_ts, Wind_ts, mean_load, state_name = 
 
     return results
 
+def optimize_enr_50(country_name, Load_ts, PV_ts, Wind_ts, mean_load, state_name = None,save_results = False):
+    prob = LpProblem(f"myProblem", LpMinimize)
+    signal_length = len(Load_ts)
+
+    dt = 1 # hour
+    e_factor = 10 # max hours of consumption to be stored
+    E_max = e_factor*Load_ts.mean()# max capacity of storage (MW)
+    stock_efficiency = 0.8 # %
+    P_max = 100000 # MW used for the binary variable, voluntraily very high
+
+    # Decision Variables
+    x_pv = LpVariable("PV_coefficient", lowBound=0)
+    x_wind = LpVariable("Wind_coefficient", lowBound=0)
+    ts_dispatchable = LpVariable.dicts('Dispatchable_production', range(signal_length), lowBound=0)
+    p_ch = LpVariable.dicts('Pch', range(signal_length), lowBound=0, upBound = P_max)
+    p_dech = LpVariable.dicts('Pdech', range(signal_length), lowBound=0, upBound = P_max)
+    SOC_ts = LpVariable.dicts('Stock',range(signal_length), lowBound=0, upBound=E_max )
+    p_curt = LpVariable.dicts('Curtailment',range(signal_length), lowBound=0)
+    dech_active = LpVariable.dicts('Dech_active', range(signal_length), cat='Binary')
+
+
+    # Constraint 1: nodal law
+    for t in range(len(Load_ts)):
+        prob += x_pv * PV_ts[t] + ts_dispatchable[t] + x_wind * Wind_ts[t]+p_dech[t] == Load_ts[t] +p_ch[t]+p_curt[t]
+
+    # Constraint 2: storage
+    for t in range(1, signal_length):
+        prob += SOC_ts[t] == SOC_ts[t-1] + (stock_efficiency*p_ch[t]-p_dech[t])*dt
+    
+        # Binary variable: can't charge and discharge at the same time
+        prob += p_ch[t] <= (1-dech_active[t])*P_max 
+        prob += p_dech[t] <= (dech_active[t])*P_max
+
+    #TODO : trouver une meilleure contrainte pour p_stock
+    prob+= p_ch[0]==0
+    prob+=p_dech[0]==0
+    prob += SOC_ts[0] == SOC_ts[signal_length-1] #same state of charge at the start and end
+
+    prob += x_pv*PV_ts.sum()+x_wind*Wind_ts.sum() <= 0.5*Load_ts.sum()
+
+    # Fonction objectif
+    prob += lpSum(ts_dispatchable[t] for t in range(signal_length))*dt
+
+    prob.solve(GUROBI())
+
+    # Afficher les résultats
+    print("Status:", LpStatus[prob.status])
+    print("Coefficient optimal pour PV:", x_pv.varValue)
+    print("Coefficient optimal pour Wind:", x_wind.varValue)
+
+
+    # Get results of optimization 
+    optimized_pv = [x_pv.varValue * PV_ts[t] for t in range(signal_length)]
+    optimized_wind = [x_wind.varValue * Wind_ts[t] for t in range(signal_length)]
+    optimized_dispatchable = [ts_dispatchable[t].varValue for t in range(signal_length)]
+    optimized_stock = [SOC_ts[t].varValue for t in range(signal_length)]
+    optimized_p_curt = [p_curt[t].varValue for t in range(signal_length)]
+    optimized_charge = [p_ch[t].varValue for t in range(signal_length)]
+    optimized_discharge = [p_dech[t].varValue for t in range(signal_length)]
+
+
+    # Calculate energy totals
+    E_wind = np.sum(optimized_wind)*mean_load
+    E_pv = np.sum(optimized_pv)*mean_load
+    E_dispatch = np.sum(optimized_dispatchable)*mean_load
+    E_curt = np.sum(optimized_p_curt)*mean_load
+    E_loss  = (np.sum(optimized_charge)-np.sum(optimized_discharge))*mean_load
+    E_stock = np.sum(optimized_charge)*mean_load
+    E_destock = np.sum(optimized_discharge)*mean_load
+
+    country_codes = pd.read_csv('../countries_codes_and_coordinates.csv' , sep = ',', index_col = 0)
+    iso_code = country_codes.loc[country_name,'Alpha-3 code' ].split(' ')[1]
+    
+    results = {
+    'optimized_pv': optimized_pv,
+    'optimized_wind': optimized_wind,
+    'optimized_dispatchable': optimized_dispatchable,
+    'optimized_stock':optimized_stock, 
+    'optimized_charge': optimized_charge, 
+    'optimized_discharge':optimized_discharge, 
+    'optimized_p_curt' : optimized_p_curt,
+    'consumption':np.array(Load_ts),
+    'cf_pv': np.mean(PV_ts),
+    'cf_wind': np.mean(Wind_ts),
+    'mean_consumption':mean_load,
+    'pv_capacity': x_pv.varValue*mean_load, 
+    'wind_capacity': x_wind.varValue*mean_load,
+    'dispatchable_capacity':np.max(optimized_dispatchable)*mean_load, 
+    'E_wind' : E_wind, 
+    'E_pv':E_pv, 
+    'E_dispatch':E_dispatch, 
+    'E_curt':E_curt, 
+    'E_loss':E_loss, 
+    'E_stock':E_stock,
+    'E_destock':E_destock, 
+    'iso_alpha':iso_code, 
+    'share_pv': E_pv/(E_pv+E_wind+E_dispatch),
+    'share_wind': E_wind/(E_pv+E_wind+E_dispatch),
+    'share_dispatchable': E_dispatch/(E_pv+E_wind+E_dispatch)
+}
+    if save_results :
+        filename = f'results/{country_name}/optimization_results_{state_name}_50c.pickle'
+        if not os.path.exists(f'results/{country_name}'):
+            os.makedirs(f'results/{country_name}')
+        with open(filename, 'wb') as pickle_file:
+            pickle.dump(results, pickle_file)
+
+        print(f"Optimization results saved to "+filename)
+
+    return results
+
+def optimize_enr_150(country_name, Load_ts, PV_ts, Wind_ts, mean_load, state_name = None,save_results = False):
+    prob = LpProblem(f"myProblem", LpMinimize)
+    signal_length = len(Load_ts)
+
+    dt = 1 # hour
+    e_factor = 10 # max hours of consumption to be stored
+    E_max = e_factor*Load_ts.mean()# max capacity of storage (MW)
+    stock_efficiency = 0.8 # %
+    P_max = 100000 # MW used for the binary variable, voluntraily very high
+
+    # Decision Variables
+    x_pv = LpVariable("PV_coefficient", lowBound=0)
+    x_wind = LpVariable("Wind_coefficient", lowBound=0)
+    ts_dispatchable = LpVariable.dicts('Dispatchable_production', range(signal_length), lowBound=0)
+    p_ch = LpVariable.dicts('Pch', range(signal_length), lowBound=0, upBound = P_max)
+    p_dech = LpVariable.dicts('Pdech', range(signal_length), lowBound=0, upBound = P_max)
+    SOC_ts = LpVariable.dicts('Stock',range(signal_length), lowBound=0, upBound=E_max )
+    p_curt = LpVariable.dicts('Curtailment',range(signal_length), lowBound=0)
+    dech_active = LpVariable.dicts('Dech_active', range(signal_length), cat='Binary')
+
+
+    # Constraint 1: nodal law
+    for t in range(len(Load_ts)):
+        prob += x_pv * PV_ts[t] + ts_dispatchable[t] + x_wind * Wind_ts[t]+p_dech[t] == Load_ts[t] +p_ch[t]+p_curt[t]
+
+    # Constraint 2: storage
+    for t in range(1, signal_length):
+        prob += SOC_ts[t] == SOC_ts[t-1] + (stock_efficiency*p_ch[t]-p_dech[t])*dt
+    
+        # Binary variable: can't charge and discharge at the same time
+        prob += p_ch[t] <= (1-dech_active[t])*P_max 
+        prob += p_dech[t] <= (dech_active[t])*P_max
+
+    #TODO : trouver une meilleure contrainte pour p_stock
+    prob+= p_ch[0]==0
+    prob+=p_dech[0]==0
+    prob += SOC_ts[0] == SOC_ts[signal_length-1] #same state of charge at the start and end
+
+    prob += x_pv*PV_ts.sum()+x_wind*Wind_ts.sum() <= 1.5*Load_ts.sum()
+
+    # Fonction objectif
+    prob += lpSum(ts_dispatchable[t] for t in range(signal_length))*dt
+
+    prob.solve(GUROBI())
+
+    # Afficher les résultats
+    print("Status:", LpStatus[prob.status])
+    print("Coefficient optimal pour PV:", x_pv.varValue)
+    print("Coefficient optimal pour Wind:", x_wind.varValue)
+
+
+    # Get results of optimization 
+    optimized_pv = [x_pv.varValue * PV_ts[t] for t in range(signal_length)]
+    optimized_wind = [x_wind.varValue * Wind_ts[t] for t in range(signal_length)]
+    optimized_dispatchable = [ts_dispatchable[t].varValue for t in range(signal_length)]
+    optimized_stock = [SOC_ts[t].varValue for t in range(signal_length)]
+    optimized_p_curt = [p_curt[t].varValue for t in range(signal_length)]
+    optimized_charge = [p_ch[t].varValue for t in range(signal_length)]
+    optimized_discharge = [p_dech[t].varValue for t in range(signal_length)]
+
+
+    # Calculate energy totals
+    E_wind = np.sum(optimized_wind)*mean_load
+    E_pv = np.sum(optimized_pv)*mean_load
+    E_dispatch = np.sum(optimized_dispatchable)*mean_load
+    E_curt = np.sum(optimized_p_curt)*mean_load
+    E_loss  = (np.sum(optimized_charge)-np.sum(optimized_discharge))*mean_load
+    E_stock = np.sum(optimized_charge)*mean_load
+    E_destock = np.sum(optimized_discharge)*mean_load
+
+    country_codes = pd.read_csv('../countries_codes_and_coordinates.csv' , sep = ',', index_col = 0)
+    iso_code = country_codes.loc[country_name,'Alpha-3 code' ].split(' ')[1]
+    
+    results = {
+    'optimized_pv': optimized_pv,
+    'optimized_wind': optimized_wind,
+    'optimized_dispatchable': optimized_dispatchable,
+    'optimized_stock':optimized_stock, 
+    'optimized_charge': optimized_charge, 
+    'optimized_discharge':optimized_discharge, 
+    'optimized_p_curt' : optimized_p_curt,
+    'consumption':np.array(Load_ts),
+    'cf_pv': np.mean(PV_ts),
+    'cf_wind': np.mean(Wind_ts),
+    'mean_consumption':mean_load,
+    'pv_capacity': x_pv.varValue*mean_load, 
+    'wind_capacity': x_wind.varValue*mean_load,
+    'dispatchable_capacity':np.max(optimized_dispatchable)*mean_load, 
+    'E_wind' : E_wind, 
+    'E_pv':E_pv, 
+    'E_dispatch':E_dispatch, 
+    'E_curt':E_curt, 
+    'E_loss':E_loss, 
+    'E_stock':E_stock,
+    'E_destock':E_destock, 
+    'iso_alpha':iso_code, 
+    'share_pv': E_pv/(E_pv+E_wind+E_dispatch),
+    'share_wind': E_wind/(E_pv+E_wind+E_dispatch),
+    'share_dispatchable': E_dispatch/(E_pv+E_wind+E_dispatch)
+}
+    if save_results :
+        filename = f'results/{country_name}/optimization_results_{state_name}_150c.pickle'
+        if not os.path.exists(f'results/{country_name}'):
+            os.makedirs(f'results/{country_name}')
+        with open(filename, 'wb') as pickle_file:
+            pickle.dump(results, pickle_file)
+
+        print(f"Optimization results saved to "+filename)
+
+    return results
+
 def optimize_enr_no_dispatch(country_name, Load_ts, PV_ts, Wind_ts,I_pv, I_wind, mean_load, save_results = False):
     prob = LpProblem(f"myProblem", LpMinimize)
     signal_length = len(Load_ts)
@@ -613,6 +835,121 @@ def optimize_enr_capacity(country_name, Load_ts, PV_ts, Wind_ts, mean_load, stat
 
     return results
 
+
+def optimize_enr_capacity(country_name, Load_ts, PV_ts, Wind_ts, mean_load, state_name = None, save_results = False):
+    prob = LpProblem(f"myProblem", LpMinimize)
+    signal_length = len(Load_ts)
+
+    dt = 1 # hour
+    e_factor = 10 # max hours of consumption to be stored
+    E_max = e_factor*Load_ts.mean()# max capacity of storage (MW)
+    stock_efficiency = 0.8 # %
+    P_max = 100000000 # MW used for the binary variable, voluntraily very high
+    
+    # Decision Variables
+    x_pv = LpVariable("PV_coefficient", lowBound=0)
+    x_wind = LpVariable("Wind_coefficient", lowBound=0)
+    ts_dispatchable = LpVariable.dicts('Dispatchable_production', range(signal_length), lowBound=0)
+    max_dispatchable = LpVariable('Dispatchable_capaicity', lowBound=0)
+    p_ch = LpVariable.dicts('Pch', range(signal_length), lowBound=0, upBound = P_max)
+    p_dech = LpVariable.dicts('Pdech', range(signal_length), lowBound=0, upBound = P_max)
+    SOC_ts = LpVariable.dicts('Stock',range(signal_length), lowBound=0, upBound=E_max )
+    p_curt = LpVariable.dicts('Curtailment',range(signal_length), lowBound=0)
+    dech_active = LpVariable.dicts('Dech_active', range(signal_length), cat='Binary')
+
+
+    # Constraint 1: nodal law
+    for t in range(len(Load_ts)):
+        prob += ts_dispatchable[t]<= max_dispatchable
+        prob += x_pv * PV_ts[t] + ts_dispatchable[t] + x_wind * Wind_ts[t]+p_dech[t] == Load_ts[t] +p_ch[t]+p_curt[t]
+
+    # Constraint 2: storage
+    for t in range(1, signal_length):
+        prob += SOC_ts[t] == SOC_ts[t-1] + (stock_efficiency*p_ch[t]-p_dech[t])*dt
+    
+        # Binary variable: can't charge and discharge at the same time
+        prob += p_ch[t] <= (1-dech_active[t])*P_max 
+        prob += p_dech[t] <= (dech_active[t])*P_max
+
+    #TODO : trouver une meilleure contrainte pour p_stock
+    prob+= p_ch[0]==0
+    prob+=p_dech[0]==0
+    prob += SOC_ts[0] == SOC_ts[signal_length-1] #same state of charge at the start and end
+    
+    prob += x_pv*PV_ts.sum()+x_wind*Wind_ts.sum() == Load_ts.sum()
+
+    # Fonction objectif : on minimiser les GES liés aux ENR
+    prob+=max_dispatchable
+
+    prob.solve(GUROBI())
+
+    # Afficher les résultats
+    print("Status:", LpStatus[prob.status])
+    print("Coefficient optimal pour PV:", x_pv.varValue)
+    print("Coefficient optimal pour Wind:", x_wind.varValue)
+
+
+    # Get results of optimization 
+    optimized_pv = [x_pv.varValue * PV_ts[t] for t in range(signal_length)]
+    optimized_wind = [x_wind.varValue * Wind_ts[t] for t in range(signal_length)]
+    optimized_dispatchable = [ts_dispatchable[t].varValue for t in range(signal_length)]
+    optimized_stock = [SOC_ts[t].varValue for t in range(signal_length)]
+    optimized_p_curt = [p_curt[t].varValue for t in range(signal_length)]
+    optimized_charge = [p_ch[t].varValue for t in range(signal_length)]
+    optimized_discharge = [p_dech[t].varValue for t in range(signal_length)]
+
+
+    # Calculate energy totals
+    E_wind = np.sum(optimized_wind)*mean_load
+    E_pv = np.sum(optimized_pv)*mean_load
+    E_dispatch = np.sum(optimized_dispatchable)*mean_load
+    E_curt = np.sum(optimized_p_curt)*mean_load
+    E_loss  = (np.sum(optimized_charge)-np.sum(optimized_discharge))*mean_load
+    E_stock = np.sum(optimized_charge)*mean_load
+    E_destock = np.sum(optimized_discharge)*mean_load
+
+    country_codes = pd.read_csv('../countries_codes_and_coordinates.csv' , sep = ',', index_col = 0)
+    iso_code = country_codes.loc[country_name,'Alpha-3 code' ].split(' ')[1]
+    
+    results = {
+    'optimized_pv': optimized_pv,
+    'optimized_wind': optimized_wind,
+    'optimized_dispatchable': optimized_dispatchable,
+    'optimized_stock':optimized_stock, 
+    'optimized_charge': optimized_charge, 
+    'optimized_discharge':optimized_discharge, 
+    'optimized_p_curt' : optimized_p_curt,
+    'consumption':np.array(Load_ts),
+    'cf_pv': np.mean(PV_ts),
+    'cf_wind': np.mean(Wind_ts),
+    'mean_consumption':mean_load,
+    'pv_capacity': x_pv.varValue*mean_load, 
+    'wind_capacity': x_wind.varValue*mean_load,
+    'dispatchable_capacity':np.max(optimized_dispatchable)*mean_load, 
+    'E_wind' : E_wind, 
+    'E_pv':E_pv, 
+    'E_dispatch':E_dispatch, 
+    'E_curt':E_curt, 
+    'E_loss':E_loss, 
+    'E_stock':E_stock,
+    'E_destock':E_destock, 
+    'iso_alpha':iso_code, 
+    'share_pv': E_pv/(E_pv+E_wind+E_dispatch),
+    'share_wind': E_wind/(E_pv+E_wind+E_dispatch),
+    'share_dispatchable': E_dispatch/(E_pv+E_wind+E_dispatch)
+}
+    
+    if save_results :
+        filename = f'results/{country_name}/optimization_results_capacity_{state_name}.pickle'
+        if not os.path.exists(f'results/{country_name}'):
+            os.makedirs(f'results/{country_name}')
+        with open(filename, 'wb') as pickle_file:
+            pickle.dump(results, pickle_file)
+
+        print(f"Optimization results saved to "+filename)
+
+    return results
+
 def format_load_data(country_name, state_name = None):
     if not os.path.exists(f'../input_time_series/{country_name}/'):
         os.makedirs(f'../input_time_series/{country_name}/')
@@ -637,3 +974,245 @@ def format_load_data(country_name, state_name = None):
         
     return file_path.split('/',2)[-1]
 
+def optimize_enr_budget_constraint(country_name, Load_ts, PV_ts, Wind_ts,I_pv, I_wind,budget, mean_load, state_name = None, save_results = False): 
+    '''
+    This function optimizes the electricity mix to minimize dispatchable energy under a carbon budget constraint on installed capacities of renewable energy.
+    - I_pv : carbon intensity of PV (ktCO2eq/MW)
+    - I_wind : carbon intensity of a wind turbines (ktCO2eq/MW)
+    - budget : carbon budget allocated to the ountry for electricity generation (ktCO2eq)
+
+    Returns: 
+    x_pv and x_wind the capacities to install for PV and wind energy. 
+    '''
+    
+    prob = LpProblem(f"myProblem_{country_name}", LpMinimize)
+    signal_length = len(Load_ts)
+
+    dt = 1 # hour
+    e_factor = 10 # max hours of consumption to be stored
+    E_max = e_factor*Load_ts.mean()# max capacity of storage (MW)
+    stock_efficiency = 0.8 # %
+    P_max = 100000 # MW used for the binary variable, voluntraily very high
+
+    # Decision Variables
+    x_pv = LpVariable("PV_coefficient", lowBound=0)
+    x_wind = LpVariable("Wind_coefficient", lowBound=0)
+    ts_dispatchable = LpVariable.dicts('Dispatchable_production', range(signal_length), lowBound=0)
+    p_ch = LpVariable.dicts('Pch', range(signal_length), lowBound=0, upBound = P_max)
+    p_dech = LpVariable.dicts('Pdech', range(signal_length), lowBound=0, upBound = P_max)
+    SOC_ts = LpVariable.dicts('Stock',range(signal_length), lowBound=0, upBound=E_max )
+    p_curt = LpVariable.dicts('Curtailment',range(signal_length), lowBound=0)
+    dech_active = LpVariable.dicts('Dech_active', range(signal_length), cat='Binary')
+
+
+    # Constraint 1: nodal law
+    for t in range(len(Load_ts)):
+        prob += x_pv * PV_ts[t] + ts_dispatchable[t] + x_wind * Wind_ts[t]+p_dech[t] == Load_ts[t] +p_ch[t]+p_curt[t]
+
+    # Constraint 2: storage
+    for t in range(1, signal_length):
+        prob += SOC_ts[t] == SOC_ts[t-1] + (stock_efficiency*p_ch[t]-p_dech[t])*dt
+    
+        # Binary variable: can't charge and discharge at the same time
+        prob += p_ch[t] <= (1-dech_active[t])*P_max 
+        prob += p_dech[t] <= (dech_active[t])*P_max
+
+    #TODO : trouver une meilleure contrainte pour p_stock
+    prob+= p_ch[0]==0
+    prob+=p_dech[0]==0
+    prob += SOC_ts[0] == SOC_ts[signal_length-1] #same state of charge at the start and end
+
+    prob += x_pv*I_pv+x_wind*I_wind <= budget
+
+    # Fonction objectif
+    prob += lpSum(ts_dispatchable[t] for t in range(signal_length))*dt
+
+    prob.solve(GUROBI())
+
+    # Afficher les résultats
+    print("Status:", LpStatus[prob.status])
+    print("Coefficient optimal pour PV:", x_pv.varValue)
+    print("Coefficient optimal pour Wind:", x_wind.varValue)
+
+    # Get results of optimization 
+    optimized_pv = [x_pv.varValue * PV_ts[t] for t in range(signal_length)]
+    optimized_wind = [x_wind.varValue * Wind_ts[t] for t in range(signal_length)]
+    optimized_dispatchable = [ts_dispatchable[t].varValue for t in range(signal_length)]
+    optimized_stock = [SOC_ts[t].varValue for t in range(signal_length)]
+    optimized_p_curt = [p_curt[t].varValue for t in range(signal_length)]
+    optimized_charge = [p_ch[t].varValue for t in range(signal_length)]
+    optimized_discharge = [p_dech[t].varValue for t in range(signal_length)]
+
+
+    # Calculate energy totals
+    E_wind = np.sum(optimized_wind)
+    E_pv = np.sum(optimized_pv)
+    E_dispatch = np.sum(optimized_dispatchable)
+    E_curt = np.sum(optimized_p_curt)
+    E_loss  = (np.sum(optimized_charge)-np.sum(optimized_discharge))
+    E_stock = np.sum(optimized_charge)
+    E_destock = np.sum(optimized_discharge)
+
+    country_codes = pd.read_csv('../countries_codes_and_coordinates.csv' , sep = ',', index_col = 0)
+    iso_code = country_codes.loc[country_name,'Alpha-3 code' ].split(' ')[1]
+    
+    results = {
+    'optimized_pv': optimized_pv,
+    'optimized_wind': optimized_wind,
+    'optimized_dispatchable': optimized_dispatchable,
+    'optimized_stock':optimized_stock, 
+    'optimized_charge': optimized_charge, 
+    'optimized_discharge':optimized_discharge, 
+    'optimized_p_curt' : optimized_p_curt,
+    'consumption':np.array(Load_ts),
+    'cf_pv': np.mean(PV_ts),
+    'cf_wind': np.mean(Wind_ts),
+    'mean_consumption':mean_load,
+    'pv_capacity': x_pv.varValue, 
+    'wind_capacity': x_wind.varValue,
+    'dispatchable_capacity':np.max(optimized_dispatchable), 
+    'E_wind' : E_wind, 
+    'E_pv':E_pv, 
+    'E_dispatch':E_dispatch, 
+    'E_curt':E_curt, 
+    'E_loss':E_loss, 
+    'E_stock':E_stock,
+    'E_destock':E_destock, 
+    'iso_alpha':iso_code, 
+    'share_pv': E_pv/(E_pv+E_wind+E_dispatch),
+    'share_wind': E_wind/(E_pv+E_wind+E_dispatch),
+    'share_dispatchable': E_dispatch/(E_pv+E_wind+E_dispatch)
+}
+    
+    if save_results :
+        filename = f'results/{country_name}/optimization_results_budget_constraint_{state_name}.pickle'
+        if not os.path.exists(f'results/{country_name}'):
+            os.makedirs(f'results/{country_name}')
+        with open(filename, 'wb') as pickle_file:
+            pickle.dump(results, pickle_file)
+
+        print(f"Optimization results saved to "+filename)
+
+    return results
+
+
+def optimize_enr_budget_constraint_kWh(country_name, Load_ts, PV_ts, Wind_ts,I_pv, I_wind,budget, mean_load, state_name = None, save_results = False): 
+    '''
+    This function optimizes the electricity mix to minimize dispatchable energy under a carbon budget constraint on installed capacities of renewable energy.
+    - I_pv : carbon intensity of PV (ktCO2eq/MW)
+    - I_wind : carbon intensity of a wind turbines (ktCO2eq/MW)
+    - budget : carbon budget allocated to the ountry for electricity generation (ktCO2eq)
+
+    Returns: 
+    x_pv and x_wind the capacities to install for PV and wind energy. 
+    '''
+    
+    prob = LpProblem(f"myProblem_{country_name}", LpMinimize)
+    signal_length = len(Load_ts)
+
+    dt = 1 # hour
+    e_factor = 10 # max hours of consumption to be stored
+    E_max = e_factor*Load_ts.mean()# max capacity of storage (MW)
+    stock_efficiency = 0.8 # %
+    P_max = 100000 # MW used for the binary variable, voluntraily very high
+
+    # Decision Variables
+    x_pv = LpVariable("PV_coefficient", lowBound=0)
+    x_wind = LpVariable("Wind_coefficient", lowBound=0)
+    ts_dispatchable = LpVariable.dicts('Dispatchable_production', range(signal_length), lowBound=0)
+    p_ch = LpVariable.dicts('Pch', range(signal_length), lowBound=0, upBound = P_max)
+    p_dech = LpVariable.dicts('Pdech', range(signal_length), lowBound=0, upBound = P_max)
+    SOC_ts = LpVariable.dicts('Stock',range(signal_length), lowBound=0, upBound=E_max )
+    p_curt = LpVariable.dicts('Curtailment',range(signal_length), lowBound=0)
+    dech_active = LpVariable.dicts('Dech_active', range(signal_length), cat='Binary')
+
+
+    # Constraint 1: nodal law
+    for t in range(len(Load_ts)):
+        prob += x_pv * PV_ts[t] + ts_dispatchable[t] + x_wind * Wind_ts[t]+p_dech[t] == Load_ts[t] +p_ch[t]+p_curt[t]
+
+    # Constraint 2: storage
+    for t in range(1, signal_length):
+        prob += SOC_ts[t] == SOC_ts[t-1] + (stock_efficiency*p_ch[t]-p_dech[t])*dt
+    
+        # Binary variable: can't charge and discharge at the same time
+        prob += p_ch[t] <= (1-dech_active[t])*P_max 
+        prob += p_dech[t] <= (dech_active[t])*P_max
+
+    #TODO : trouver une meilleure contrainte pour p_stock
+    prob+= p_ch[0]==0
+    prob+=p_dech[0]==0
+    prob += SOC_ts[0] == SOC_ts[signal_length-1] #same state of charge at the start and end
+
+    prob += x_pv*PV_ts.sum()*I_pv+x_wind*Wind_ts.sum()*I_wind <= budget
+
+    # Fonction objectif
+    prob += lpSum(ts_dispatchable[t] for t in range(signal_length))*dt
+
+    prob.solve(GUROBI())
+
+    # Afficher les résultats
+    print("Status:", LpStatus[prob.status])
+    print("Coefficient optimal pour PV:", x_pv.varValue)
+    print("Coefficient optimal pour Wind:", x_wind.varValue)
+
+    # Get results of optimization 
+    optimized_pv = [x_pv.varValue * PV_ts[t] for t in range(signal_length)]
+    optimized_wind = [x_wind.varValue * Wind_ts[t] for t in range(signal_length)]
+    optimized_dispatchable = [ts_dispatchable[t].varValue for t in range(signal_length)]
+    optimized_stock = [SOC_ts[t].varValue for t in range(signal_length)]
+    optimized_p_curt = [p_curt[t].varValue for t in range(signal_length)]
+    optimized_charge = [p_ch[t].varValue for t in range(signal_length)]
+    optimized_discharge = [p_dech[t].varValue for t in range(signal_length)]
+
+
+    # Calculate energy totals
+    E_wind = np.sum(optimized_wind)
+    E_pv = np.sum(optimized_pv)
+    E_dispatch = np.sum(optimized_dispatchable)
+    E_curt = np.sum(optimized_p_curt)
+    E_loss  = (np.sum(optimized_charge)-np.sum(optimized_discharge))
+    E_stock = np.sum(optimized_charge)
+    E_destock = np.sum(optimized_discharge)
+
+    country_codes = pd.read_csv('../countries_codes_and_coordinates.csv' , sep = ',', index_col = 0)
+    iso_code = country_codes.loc[country_name,'Alpha-3 code' ].split(' ')[1]
+    
+    results = {
+    'optimized_pv': optimized_pv,
+    'optimized_wind': optimized_wind,
+    'optimized_dispatchable': optimized_dispatchable,
+    'optimized_stock':optimized_stock, 
+    'optimized_charge': optimized_charge, 
+    'optimized_discharge':optimized_discharge, 
+    'optimized_p_curt' : optimized_p_curt,
+    'consumption':np.array(Load_ts),
+    'cf_pv': np.mean(PV_ts),
+    'cf_wind': np.mean(Wind_ts),
+    'mean_consumption':mean_load,
+    'pv_capacity': x_pv.varValue, 
+    'wind_capacity': x_wind.varValue,
+    'dispatchable_capacity':np.max(optimized_dispatchable), 
+    'E_wind' : E_wind, 
+    'E_pv':E_pv, 
+    'E_dispatch':E_dispatch, 
+    'E_curt':E_curt, 
+    'E_loss':E_loss, 
+    'E_stock':E_stock,
+    'E_destock':E_destock, 
+    'iso_alpha':iso_code, 
+    'share_pv': E_pv/(E_pv+E_wind+E_dispatch),
+    'share_wind': E_wind/(E_pv+E_wind+E_dispatch),
+    'share_dispatchable': E_dispatch/(E_pv+E_wind+E_dispatch)
+}
+    
+    if save_results :
+        filename = f'results/{country_name}/optimization_results_budget_constraint_{state_name}.pickle'
+        if not os.path.exists(f'results/{country_name}'):
+            os.makedirs(f'results/{country_name}')
+        with open(filename, 'wb') as pickle_file:
+            pickle.dump(results, pickle_file)
+
+        print(f"Optimization results saved to "+filename)
+
+    return results
