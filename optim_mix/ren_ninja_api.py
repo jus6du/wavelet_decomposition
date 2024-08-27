@@ -81,6 +81,18 @@ def coordinates_in_country(country_name, points_in_world):
             coordinates.append((point.y, point.x))
     return coordinates
 
+def coordinates_in_state(country_name, state_name, points_in_world):
+    coordinates = []
+    country_codes = pd.read_csv('../countries_codes_and_coordinates.csv' , sep = ',', index_col = 0)
+    iso_code = country_codes.loc[country_name,'Alpha-3 code' ].split(' ')[1]
+    df_points_in_country = points_in_world[points_in_world['iso_a3']==iso_code ]
+    df_points_in_state = df_points_in_country[df_points_in_country['state_code']==state_name]
+    if len(df_points_in_state)!=0:
+        for point in df_points_in_state['geometry']:
+            coordinates.append((point.y, point.x))
+    return coordinates
+
+
 def grid_coordinates(spacing, plot = False, savefile = False):
     # Charger les données de la carte du monde
     world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
@@ -176,11 +188,14 @@ def get_renewable_data(lat, lon, technology, year=2021):
         raise Exception(f"Error {response.status_code}: {response.text}")
     
 
-def fetch_and_average_data_ren_ninja(country, num_locations, technologies, points_in_world, year=2020, save = False, coordinates = 'random'):
+def fetch_and_average_data_ren_ninja(country, num_locations, technologies, points_in_world, state = None, year=2020, save = False, coordinates = 'grid'):
     if  coordinates == 'random' :
         coordinates_list = get_random_coordinates(country, num_locations)
     elif coordinates =='grid' : 
-        coordinates_list = coordinates_in_country(country, points_in_world)
+        if state :
+            coordinates_list = coordinates_in_state(country,state, points_in_world)
+        else:
+            coordinates_list = coordinates_in_country(country, points_in_world)
         num_locations = len(coordinates_list)
     else:
         raise ValueError('Unknown input for coordinates.')
@@ -204,8 +219,11 @@ def fetch_and_average_data_ren_ninja(country, num_locations, technologies, point
             if not os.path.exists(f'../input_time_series/{country}'):
                 os.makedirs(f'../input_time_series/{country}')
             for tech, df in all_data.items():
-                
-                df['electricity'].to_excel(f'../input_time_series/{country}/ren_ninja_{num_locations}_{coordinates}_locations_averaged_{tech}_{country}_{year}.xlsx', index=False)
+                if state:
+                    file_save = f'../input_time_series/{country}/ren_ninja_{num_locations}_{coordinates}_locations_averaged_{tech}_{country}_{state}_{year}.xlsx'
+                else :
+                    file_save = f'../input_time_series/{country}/ren_ninja_{num_locations}_{coordinates}_locations_averaged_{tech}_{country}_{year}.xlsx'
+                df['electricity'].to_excel(file_save, index=False)
 
     return 
 
